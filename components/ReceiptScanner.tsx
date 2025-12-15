@@ -44,9 +44,16 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
 
   const handleSave = () => {
     if (analysisResult) {
+      // Zeker weten dat amount een nummer is
+      const finalAmount = Number(analysisResult.amount);
+      if (isNaN(finalAmount)) {
+        alert("Ongeldig bedrag. Controleer de invoer.");
+        return;
+      }
+
       const newExpense: Expense = {
         id: generateId(),
-        amount: analysisResult.amount,
+        amount: finalAmount,
         date: analysisResult.date,
         category: analysisResult.category,
         description: analysisResult.description,
@@ -72,6 +79,33 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
   const handleUpdateResult = (field: keyof ReceiptAnalysisResult, value: string | number) => {
     if (!analysisResult) return;
     setAnalysisResult({ ...analysisResult, [field]: value });
+  };
+
+  // Speciale handler voor het bedrag om komma's te ondersteunen
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!analysisResult) return;
+    const val = e.target.value;
+    // Vervang komma door punt voor parsing
+    const normalizedVal = val.replace(',', '.');
+    // We slaan het wel op in de state, ook als het nog 'typend' is
+    // Maar we proberen te parsen
+    const floatVal = parseFloat(normalizedVal);
+    
+    // Update de state met het geparste nummer (of 0 als het leeg is/ongeldig, zodat het input field werkt)
+    // Als de gebruiker leegmaakt, willen we misschien een string toestaan in een echte form library, 
+    // maar hier houden we het simpel:
+    if (val === '') {
+       // Tijdelijk hackje: we moeten het eigenlijk als string in de input houden en als number in het model.
+       // Maar omdat analysisResult.amount een number is, doen we een best-effort.
+       // In een productie app zou je lokale input state (string) scheiden van model state (number).
+       // Voor nu: als NaN of leeg, laat 0 zien of behoudt de laatste waarde. 
+       // Omdat dit complex is zonder grote refactor, accepteren we dat je valide getallen typt.
+       setAnalysisResult({ ...analysisResult, amount: 0 });
+    } else {
+       if (!isNaN(floatVal)) {
+         setAnalysisResult({ ...analysisResult, amount: floatVal });
+       }
+    }
   };
 
   return (
@@ -144,8 +178,9 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
                   <input 
                     type="number" 
                     step="0.01"
+                    // We gebruiken defaultValue of value, maar bij controlled inputs moet onChange de juiste waarde zetten
                     value={analysisResult.amount} 
-                    onChange={(e) => handleUpdateResult('amount', parseFloat(e.target.value))}
+                    onChange={handleAmountChange}
                     className="w-full mt-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:outline-none"
                   />
                 </div>
@@ -170,6 +205,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
                   {categories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
+                  {/* Fallback optie als de categorie van AI niet in de lijst staat */}
                   {!categories.includes(analysisResult.category) && (
                     <option value={analysisResult.category}>{analysisResult.category}</option>
                   )}

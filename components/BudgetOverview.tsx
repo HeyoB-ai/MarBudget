@@ -14,9 +14,13 @@ export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ expenses, budget
   
   const calculateStats = (category: string) => {
     const limit = budgets[category] || 0;
+    
+    // We normaliseren de strings (trim en toLowerCase) om zeker te weten dat ze matchen
+    // We forceren amount naar Number() om rekenfouten met strings te voorkomen
     const spent = expenses
-      .filter(e => e.category === category)
-      .reduce((sum, e) => sum + e.amount, 0);
+      .filter(e => e.category.trim().toLowerCase() === category.trim().toLowerCase())
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+      
     const remaining = limit - spent;
     const percentage = limit > 0 ? (spent / limit) * 100 : 0;
     
@@ -24,7 +28,8 @@ export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ expenses, budget
   };
 
   const totalBudget = Object.values(budgets).reduce((a, b) => a + b, 0);
-  const totalSpent = expenses.reduce((a, b) => a + b.amount, 0);
+  // Gebruik ook hier Number() casting voor veiligheid
+  const totalSpent = expenses.reduce((a, b) => a + (Number(b.amount) || 0), 0);
   const totalRemaining = totalBudget - totalSpent;
   const categoriesList = Object.keys(budgets);
 
@@ -109,7 +114,7 @@ export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ expenses, budget
             {categoriesList.map((cat) => {
               const { limit, spent, remaining, percentage } = calculateStats(cat);
               
-              // We render the tile if it exists in budgets, even if limit is 0, so users can see they have a budget of 0
+              // We render the tile if it exists in budgets, even if limit is 0
               
               const isOverBudget = remaining < 0;
               let barColor = 'bg-primary';
