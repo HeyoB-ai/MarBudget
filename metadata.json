@@ -1,0 +1,7 @@
+{
+  "name": "MarBudget",
+  "description": "Slimme budgetcoach applicatie voor het beheren van uitgaven en budgetten met AI-bonnetjesscanner.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
