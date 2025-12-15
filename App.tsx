@@ -41,6 +41,18 @@ export default function App() {
 
   const addExpense = (expense: Expense) => {
     setExpenses(prev => [expense, ...prev]);
+    
+    // Check if the expense date is in a different month than currently selected
+    const expenseDate = new Date(expense.date);
+    const currentMonthStr = `${selectedMonth.getFullYear()}-${selectedMonth.getMonth()}`;
+    const expenseMonthStr = `${expenseDate.getFullYear()}-${expenseDate.getMonth()}`;
+
+    if (currentMonthStr !== expenseMonthStr) {
+      // Automatically switch to the month of the receipt so the user sees the result
+      setSelectedMonth(expenseDate);
+      // Optional: alert user
+      // alert(`De weergave is verplaatst naar ${expenseDate.toLocaleDateString('nl-NL', { month: 'long' })} omdat de bon daar bij hoort.`);
+    }
   };
 
   const removeExpense = (id: string) => {

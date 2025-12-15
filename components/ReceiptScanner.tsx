@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Check, X } from 'lucide-react';
 import { analyzeReceipt, fileToGenerativePart } from '../services/geminiService';
 import { ReceiptAnalysisResult, Expense } from '../types';
@@ -14,8 +14,19 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<ReceiptAnalysisResult | null>(null);
+  
+  // Local state for the amount input string to handle "12," without auto-formatting interfering
+  const [amountInput, setAmountInput] = useState<string>(""); 
+  
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync analysis result to input field when analysis completes
+  useEffect(() => {
+    if (analysisResult?.amount !== undefined) {
+      setAmountInput(analysisResult.amount.toString().replace('.', ','));
+    }
+  }, [analysisResult]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -25,6 +36,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
       setIsAnalyzing(true);
       setError(null);
       setAnalysisResult(null);
+      setAmountInput("");
 
       // Create preview
       const base64Data = await fileToGenerativePart(file);
@@ -44,16 +56,17 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
 
   const handleSave = () => {
     if (analysisResult) {
-      // Zeker weten dat amount een nummer is
-      const finalAmount = Number(analysisResult.amount);
-      if (isNaN(finalAmount)) {
+      // Parse the local string input (handling comma or dot)
+      const parsedAmount = parseFloat(amountInput.replace(',', '.'));
+      
+      if (isNaN(parsedAmount)) {
         alert("Ongeldig bedrag. Controleer de invoer.");
         return;
       }
 
       const newExpense: Expense = {
         id: generateId(),
-        amount: finalAmount,
+        amount: parsedAmount,
         date: analysisResult.date,
         category: analysisResult.category,
         description: analysisResult.description,
@@ -67,6 +80,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
   const resetScanner = () => {
     setPreview(null);
     setAnalysisResult(null);
+    setAmountInput("");
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -81,29 +95,15 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
     setAnalysisResult({ ...analysisResult, [field]: value });
   };
 
-  // Speciale handler voor het bedrag om komma's te ondersteunen
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!analysisResult) return;
+  const handleAmountInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Allow typing only numbers, commas and dots
     const val = e.target.value;
-    // Vervang komma door punt voor parsing
-    const normalizedVal = val.replace(',', '.');
-    // We slaan het wel op in de state, ook als het nog 'typend' is
-    // Maar we proberen te parsen
-    const floatVal = parseFloat(normalizedVal);
-    
-    // Update de state met het geparste nummer (of 0 als het leeg is/ongeldig, zodat het input field werkt)
-    // Als de gebruiker leegmaakt, willen we misschien een string toestaan in een echte form library, 
-    // maar hier houden we het simpel:
-    if (val === '') {
-       // Tijdelijk hackje: we moeten het eigenlijk als string in de input houden en als number in het model.
-       // Maar omdat analysisResult.amount een number is, doen we een best-effort.
-       // In een productie app zou je lokale input state (string) scheiden van model state (number).
-       // Voor nu: als NaN of leeg, laat 0 zien of behoudt de laatste waarde. 
-       // Omdat dit complex is zonder grote refactor, accepteren we dat je valide getallen typt.
-       setAnalysisResult({ ...analysisResult, amount: 0 });
-    } else {
-       if (!isNaN(floatVal)) {
-         setAnalysisResult({ ...analysisResult, amount: floatVal });
+    if (/^[\d,.]*$/.test(val)) {
+       setAmountInput(val);
+       // Update the underlying data model for consistency, though we rely on input string for saving
+       const parsed = parseFloat(val.replace(',', '.'));
+       if (!isNaN(parsed) && analysisResult) {
+         setAnalysisResult({ ...analysisResult, amount: parsed });
        }
     }
   };
@@ -176,11 +176,11 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
                 <div>
                   <label className="text-xs font-semibold text-gray-500 uppercase">Bedrag (€)</label>
                   <input 
-                    type="number" 
-                    step="0.01"
-                    // We gebruiken defaultValue of value, maar bij controlled inputs moet onChange de juiste waarde zetten
-                    value={analysisResult.amount} 
-                    onChange={handleAmountChange}
+                    type="text" 
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={amountInput} 
+                    onChange={handleAmountInputChange}
                     className="w-full mt-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:outline-none"
                   />
                 </div>
