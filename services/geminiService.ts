@@ -17,16 +17,10 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 };
 
 export const analyzeReceipt = async (base64Image: string, mimeType: string, availableCategories: string[]): Promise<ReceiptAnalysisResult> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API Key is missing. Check your environment configuration.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
+  // Initialize the client with the API key from the environment variable
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   // Define the schema for the expected JSON output
-  // We make the category enum optional in strict validation to prevent API errors if the model 
-  // slightly deviates, and handle the mapping via the prompt text more strongly.
   const schema = {
     type: Type.OBJECT,
     properties: {
