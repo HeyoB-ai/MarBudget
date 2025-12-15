@@ -16,7 +16,7 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
   });
 };
 
-export const analyzeReceipt = async (base64Image: string, availableCategories: string[]): Promise<ReceiptAnalysisResult> => {
+export const analyzeReceipt = async (base64Image: string, mimeType: string, availableCategories: string[]): Promise<ReceiptAnalysisResult> => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
     throw new Error("API Key not found");
@@ -47,7 +47,7 @@ export const analyzeReceipt = async (base64Image: string, availableCategories: s
         parts: [
           {
             inlineData: {
-              mimeType: "image/jpeg", // Assuming JPEG for simplicity, works with PNG too usually
+              mimeType: mimeType || "image/jpeg", // Use provided mimeType or fallback
               data: base64Image
             }
           },

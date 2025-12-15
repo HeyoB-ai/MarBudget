@@ -30,8 +30,8 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
       const base64Data = await fileToGenerativePart(file);
       setPreview(`data:${file.type};base64,${base64Data}`);
 
-      // Analyze with Gemini, passing the current list of categories
-      const result = await analyzeReceipt(base64Data, categories);
+      // Analyze with Gemini, passing the current list of categories AND the file type
+      const result = await analyzeReceipt(base64Data, file.type, categories);
       setAnalysisResult(result);
     } catch (err) {
       console.error(err);
