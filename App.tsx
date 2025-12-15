@@ -4,6 +4,7 @@ import { BudgetOverview } from './components/BudgetOverview';
 import { BudgetSettings } from './components/BudgetSettings';
 import { Expense } from './types';
 import { INITIAL_BUDGETS, formatCurrency } from './constants';
+import { postToGoogleSheet } from './services/sheetService';
 import { Wallet, Settings, List, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function App() {
@@ -11,6 +12,7 @@ export default function App() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [budgets, setBudgets] = useState<Record<string, number>>(INITIAL_BUDGETS);
   const [income, setIncome] = useState<number>(2500); // Default income assumption
+  const [sheetUrl, setSheetUrl] = useState<string>("");
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'expenses'>('dashboard');
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
@@ -20,10 +22,12 @@ export default function App() {
     const savedExpenses = localStorage.getItem('marbudget_expenses');
     const savedBudgets = localStorage.getItem('marbudget_budgets');
     const savedIncome = localStorage.getItem('marbudget_income');
+    const savedSheetUrl = localStorage.getItem('marbudget_sheet_url');
     
     if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
     if (savedBudgets) setBudgets(JSON.parse(savedBudgets));
     if (savedIncome) setIncome(parseFloat(savedIncome));
+    if (savedSheetUrl) setSheetUrl(savedSheetUrl);
   }, []);
 
   // Save to local storage on change
@@ -39,8 +43,17 @@ export default function App() {
     localStorage.setItem('marbudget_income', income.toString());
   }, [income]);
 
+  useEffect(() => {
+    localStorage.setItem('marbudget_sheet_url', sheetUrl);
+  }, [sheetUrl]);
+
   const addExpense = (expense: Expense) => {
     setExpenses(prev => [expense, ...prev]);
+    
+    // Automatically push to Google Sheet if configured
+    if (sheetUrl) {
+      postToGoogleSheet(sheetUrl, expense);
+    }
     
     // Check if the expense date is in a different month than currently selected
     const expenseDate = new Date(expense.date);
@@ -50,8 +63,6 @@ export default function App() {
     if (currentMonthStr !== expenseMonthStr) {
       // Automatically switch to the month of the receipt so the user sees the result
       setSelectedMonth(expenseDate);
-      // Optional: alert user
-      // alert(`De weergave is verplaatst naar ${expenseDate.toLocaleDateString('nl-NL', { month: 'long' })} omdat de bon daar bij hoort.`);
     }
   };
 
@@ -59,9 +70,10 @@ export default function App() {
     setExpenses(prev => prev.filter(e => e.id !== id));
   };
 
-  const handleUpdateSettings = (newBudgets: Record<string, number>, newIncome: number) => {
+  const handleUpdateSettings = (newBudgets: Record<string, number>, newIncome: number, newSheetUrl: string) => {
     setBudgets(newBudgets);
     setIncome(newIncome);
+    setSheetUrl(newSheetUrl);
   };
 
   // Date Navigation Handlers
@@ -204,6 +216,8 @@ export default function App() {
         <BudgetSettings 
           budgets={budgets}
           income={income}
+          sheetUrl={sheetUrl}
+          allExpenses={expenses}
           onSave={handleUpdateSettings} 
           onClose={() => setShowSettings(false)} 
         />

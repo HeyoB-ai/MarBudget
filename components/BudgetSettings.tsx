@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
 import { formatCurrency } from '../constants';
-import { Save, Plus, AlertTriangle, Trash2 } from 'lucide-react';
+import { Save, Plus, AlertTriangle, Trash2, Sheet, UploadCloud } from 'lucide-react';
+import { Expense } from '../types';
+import { postToGoogleSheet } from '../services/sheetService';
 
 interface BudgetSettingsProps {
   budgets: Record<string, number>;
   income: number;
-  onSave: (newBudgets: Record<string, number>, newIncome: number) => void;
+  sheetUrl: string;
+  allExpenses: Expense[];
+  onSave: (newBudgets: Record<string, number>, newIncome: number, newSheetUrl: string) => void;
   onClose: () => void;
 }
 
-export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income, onSave, onClose }) => {
+export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income, sheetUrl, allExpenses, onSave, onClose }) => {
   const [localBudgets, setLocalBudgets] = useState<Record<string, number>>({ ...budgets });
   const [localIncome, setLocalIncome] = useState<number>(income);
+  const [localSheetUrl, setLocalSheetUrl] = useState<string>(sheetUrl || '');
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // New category state
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -44,8 +50,16 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
   };
 
   const handleSave = () => {
-    onSave(localBudgets, localIncome);
+    onSave(localBudgets, localIncome, localSheetUrl);
     onClose();
+  };
+
+  const handleSyncAll = async () => {
+    if (!localSheetUrl) return;
+    setIsSyncing(true);
+    await postToGoogleSheet(localSheetUrl, allExpenses);
+    setIsSyncing(false);
+    alert('Alle uitgaven zijn naar de Sheet verstuurd!');
   };
 
   const totalBudget = Object.values(localBudgets).reduce((a, b) => a + b, 0);
@@ -56,7 +70,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-          <h2 className="text-lg font-bold text-gray-800">Budgetten & Inkomsten</h2>
+          <h2 className="text-lg font-bold text-gray-800">Instellingen</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">Sluiten</button>
         </div>
         
@@ -74,6 +88,36 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
                 className="w-full pl-7 pr-3 py-2 border border-cyan-200 rounded-md focus:ring-primary focus:border-primary font-semibold text-gray-800"
               />
             </div>
+          </div>
+
+          {/* Google Sheets Integration */}
+          <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+            <div className="flex items-center mb-2 text-green-800">
+              <Sheet className="w-4 h-4 mr-2" />
+              <label className="text-sm font-bold block">Google Sheets Koppeling</label>
+            </div>
+            <p className="text-xs text-green-700 mb-2">Plak hier de Web App URL van je Google Apps Script.</p>
+            <input
+              type="text"
+              placeholder="https://script.google.com/..."
+              value={localSheetUrl}
+              onChange={(e) => setLocalSheetUrl(e.target.value)}
+              className="w-full p-2 border border-green-200 rounded-md focus:ring-green-500 focus:border-green-500 text-xs mb-3"
+            />
+            {localSheetUrl && (
+              <button 
+                onClick={handleSyncAll}
+                disabled={isSyncing}
+                className="w-full bg-green-600 hover:bg-green-700 text-white text-xs py-2 px-3 rounded flex items-center justify-center transition-colors"
+              >
+                {isSyncing ? 'Bezig met versturen...' : (
+                  <>
+                    <UploadCloud className="w-3 h-3 mr-2" />
+                    Sync alle huidige data nu
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           <div className="border-t border-gray-100 pt-4">
