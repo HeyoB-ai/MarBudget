@@ -30,12 +30,13 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
       const base64Data = await fileToGenerativePart(file);
       setPreview(`data:${file.type};base64,${base64Data}`);
 
-      // Analyze with Gemini, passing the current list of categories AND the file type
+      // Analyze with Gemini
       const result = await analyzeReceipt(base64Data, file.type, categories);
       setAnalysisResult(result);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Kon het bonnetje niet lezen. Probeer een duidelijkere foto.");
+      // Show the actual error message if available, otherwise generic
+      setError(err.message || "Kon het bonnetje niet lezen. Probeer een duidelijkere foto.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -119,8 +120,8 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
           )}
 
           {error && (
-             <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
-               {error}
+             <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm break-words">
+               <strong>Fout:</strong> {error}
                <button onClick={resetScanner} className="block mt-2 font-medium underline">Probeer opnieuw</button>
              </div>
           )}
@@ -169,6 +170,9 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
                   {categories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
+                  {!categories.includes(analysisResult.category) && (
+                    <option value={analysisResult.category}>{analysisResult.category}</option>
+                  )}
                 </select>
               </div>
 
