@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { createClient } from '@supabase/supabase-js';
-import { Wallet, AlertTriangle, Wrench } from 'lucide-react';
+import { Wallet, AlertTriangle } from 'lucide-react';
 
 export const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -11,11 +10,6 @@ export const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(true);
-  
-  // Debug state
-  const [showDebug, setShowDebug] = useState(false);
-  const [debugUrl, setDebugUrl] = useState('');
-  const [debugKey, setDebugKey] = useState('');
 
   useEffect(() => {
     // Check configuratie via global config
@@ -28,40 +22,19 @@ export const Auth = () => {
     // Check of URL of Key ontbreekt of placeholder is
     if (!url || url === "undefined" || url.includes('placeholder') || !key || key === "undefined" || key === 'placeholder-key' || key.length < 10) {
       setIsConfigured(false);
-    } else {
-      // Pre-fill debug fields met huidige config (masked in UI niet mogelijk, maar hier voor gemak)
-      setDebugUrl(url);
-      setDebugKey(key);
     }
   }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isConfigured) return;
+    
     setLoading(true);
     setError(null);
 
-    // Bepaal welke client we gebruiken: de globale of een test-client
-    let client = supabase;
-    
-    // Als debug mode open is en waarden zijn ingevuld, gebruik die
-    if (showDebug && debugUrl && debugKey) {
-       try {
-         client = createClient(debugUrl.trim(), debugKey.trim(), {
-            global: { headers: { 'apikey': debugKey.trim() } }
-         });
-         console.log("Gebruik debug client...");
-       } catch (err) {
-         setError("Ongeldige debug configuratie.");
-         setLoading(false);
-         return;
-       }
-    } else if (!isConfigured) {
-        return;
-    }
-
     try {
       if (isSignUp) {
-        const { error } = await client.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -73,25 +46,21 @@ export const Auth = () => {
         if (error) throw error;
         alert('Account aangemaakt! Controleer je e-mail voor de bevestigingslink (of log direct in als e-mailbevestiging uit staat).');
       } else {
-        const { error } = await client.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
-        // Bij succes met debug client: reload pagina om de sessie (die in storage wordt gezet) op te pakken
-        if (showDebug) {
-            window.location.reload();
-        }
       }
     } catch (error: any) {
-      console.error("Auth error details:", error);
+      console.error("Auth error:", error);
       
       let msg = error.message || "Er is een fout opgetreden.";
       
-      if (msg.includes("Invalid API key") || (error.status === 401 && !msg.includes("Email not confirmed") && !msg.includes("Invalid login credentials"))) {
-        msg = "Fout: Ongeldige API Sleutel (401). De sleutel hoort waarschijnlijk niet bij deze URL.";
-      } else if (msg.includes("Invalid login credentials")) {
+      if (msg.includes("Invalid login credentials")) {
         msg = "Ongeldig e-mailadres of wachtwoord.";
+      } else if (msg.includes("Invalid API key")) {
+         msg = "Configuratiefout: API Key is ongeldig.";
       }
 
       setError(msg);
@@ -100,7 +69,7 @@ export const Auth = () => {
     }
   };
 
-  if (!isConfigured && !showDebug) {
+  if (!isConfigured) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
         <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md border-l-4 border-amber-500">
@@ -111,12 +80,13 @@ export const Auth = () => {
           <p className="text-gray-600 mb-4">
             De applicatie kan de database sleutels niet vinden.
           </p>
-          <button 
-            onClick={() => setShowDebug(true)}
-            className="text-sm text-primary underline mt-2"
-          >
-            Ik wil handmatig sleutels invoeren (Debug)
-          </button>
+          <div className="bg-gray-100 p-4 rounded text-sm mb-4">
+            <h3 className="font-bold mb-2">Controleer Instellingen:</h3>
+            <ul className="list-disc list-inside space-y-1 text-gray-700">
+              <li>Environment Variable <code>VITE_SUPABASE_URL</code></li>
+              <li>Environment Variable <code>VITE_SUPABASE_ANON_KEY</code></li>
+            </ul>
+          </div>
         </div>
       </div>
     );
@@ -174,27 +144,6 @@ export const Auth = () => {
             />
           </div>
 
-          {showDebug && (
-            <div className="bg-gray-100 p-3 rounded border border-gray-200 text-xs space-y-2 animate-fade-in">
-              <div className="font-bold text-gray-700 flex items-center">
-                <Wrench className="w-3 h-3 mr-1" /> Handmatige Configuratie
-              </div>
-              <input 
-                placeholder="Supabase URL (https://...supabase.co)"
-                value={debugUrl}
-                onChange={e => setDebugUrl(e.target.value)}
-                className="w-full p-2 border rounded"
-              />
-              <input 
-                placeholder="Supabase Anon Key (ey...)"
-                value={debugKey}
-                onChange={e => setDebugKey(e.target.value)}
-                className="w-full p-2 border rounded"
-              />
-              <p className="text-gray-500 italic">Deze waarden overschrijven tijdelijk de server instellingen.</p>
-            </div>
-          )}
-
           <button
             type="submit"
             disabled={loading}
@@ -204,20 +153,12 @@ export const Auth = () => {
           </button>
         </form>
 
-        <div className="mt-4 text-center space-y-2">
+        <div className="mt-4 text-center">
           <button
             onClick={() => setIsSignUp(!isSignUp)}
-            className="text-sm text-primary hover:underline block w-full"
+            className="text-sm text-primary hover:underline"
           >
             {isSignUp ? 'Heb je al een account? Log in' : 'Nog geen account? Registreer hier'}
-          </button>
-          
-          <button
-            onClick={() => setShowDebug(!showDebug)}
-            className="text-xs text-gray-400 hover:text-gray-600 flex items-center justify-center w-full mt-4"
-          >
-            <Wrench className="w-3 h-3 mr-1" />
-            {showDebug ? 'Verberg debug opties' : 'Problemen met inloggen? Check configuratie'}
           </button>
         </div>
       </div>

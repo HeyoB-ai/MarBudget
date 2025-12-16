@@ -18,20 +18,11 @@ const supabaseAnonKey = (envKey && envKey !== "undefined" && envKey.length > 0) 
 
 if (supabaseUrl === 'https://placeholder.supabase.co' || supabaseAnonKey === 'placeholder-key') {
   console.warn("⚠️ Supabase is not configured correctly.");
-} else {
-  // Safe logging for debugging
-  console.log(`Supabase Client Initialized: ${supabaseUrl} | Key Length: ${supabaseAnonKey.length}`);
 }
 
-// We expliciet de headers meegeven om zeker te zijn dat de apikey goed aankomt
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-  },
-  global: {
-    headers: {
-      'apikey': supabaseAnonKey,
-    },
-  },
+  }
 });
