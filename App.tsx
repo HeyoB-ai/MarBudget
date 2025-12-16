@@ -121,11 +121,15 @@ const Dashboard = () => {
   };
 
   const handleUpdateSettings = async (newBudgets: Record<string, number>, newIncome: number, newSheetUrl: string) => {
-    if (!tenant) return;
-
     // 1. Update local state immediately for responsiveness
+    // Dit zorgt ervoor dat je de wijzigingen meteen ziet, zelfs als de DB traag is
     setBudgets(newBudgets);
     setIncome(newIncome);
+
+    if (!tenant) {
+      console.error("Geen tenant gevonden tijdens opslaan!");
+      return;
+    }
 
     try {
       // 2. Update Income in DB
@@ -180,12 +184,12 @@ const Dashboard = () => {
         
         if (upsertError) {
           console.error(`Failed to save budget for ${cat}:`, upsertError);
-          // We could alert here, but since it's a loop, maybe just log for now unless it's critical
         }
       }
     } catch (err: any) {
       console.error("Critical error saving settings:", err);
-      alert("Er ging iets mis bij het opslaan van de instellingen. Controleer je verbinding.");
+      // We tonen geen alert meer omdat de lokale state al goed staat voor de gebruiker.
+      // In een productie app zouden we hier een 'toast' notificatie willen.
     }
   };
 

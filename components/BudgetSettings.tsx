@@ -14,10 +14,12 @@ interface BudgetSettingsProps {
 }
 
 export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income, sheetUrl, allExpenses, onSave, onClose }) => {
-  // Initialiseer state met correcte string representatie (komma voor decimalen)
+  // Initialiseer state. We zetten getallen om naar Nederlandse string notatie (1000 -> "1.000,00" of simpelweg "1000")
+  // Voor invoervelden is het makkelijker om geen duizendtallen te tonen tijdens editen, maar we staan ze wel toe bij parsen.
   const [localBudgets, setLocalBudgets] = useState<Record<string, string>>(() => {
     const formatted: Record<string, string> = {};
     Object.entries(budgets).forEach(([key, value]) => {
+      // Zet punt om naar komma voor weergave
       formatted[key] = value.toString().replace('.', ',');
     });
     return formatted;
@@ -37,15 +39,20 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
   // Validatie: sta cijfers, punten en komma's toe
   const isValidNumberInput = (val: string) => /^[\d,.]*$/.test(val);
 
-  // Parse functie specifiek voor NL formaat (1.000,00)
+  // Robuuste parse functie voor NL formaat
   const parseValue = (val: string) => {
     if (!val) return 0;
-    // 1. Verwijder alle punten (duizendtallen)
-    // 2. Vervang komma door punt (decimaal)
-    let clean = val.replace(/\./g, '').replace(/,/g, '.');
-    // 3. Verwijder alles wat geen cijfer of punt is
-    clean = clean.replace(/[^0-9.]/g, '');
-    return parseFloat(clean) || 0;
+    let clean = val.toString();
+    
+    // 1. Verwijder alle punten (duizendtallen in NL)
+    clean = clean.replace(/\./g, '');
+    
+    // 2. Vervang komma door punt (decimaal scheiding)
+    clean = clean.replace(',', '.');
+    
+    // 3. Parse naar float
+    const num = parseFloat(clean);
+    return isNaN(num) ? 0 : num;
   };
 
   // Handle changes for existing budget categories
@@ -79,21 +86,24 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
   };
 
   const handleSave = () => {
-    // Check of er nog een niet-toegevoegde categorie in de invulvelden staat
-    // en voeg deze alsnog toe als de gebruiker op Opslaan klikt.
+    // 1. Check of er nog een 'hangende' nieuwe categorie is
     let finalBudgetsMap = { ...localBudgets };
     if (newCategoryName.trim()) {
        const amountStr = newCategoryAmount === '' ? '0' : newCategoryAmount;
        finalBudgetsMap[newCategoryName.trim()] = amountStr;
     }
 
-    // Parse Income
+    // 2. Parse Income
     const finalIncome = parseValue(localIncomeStr);
 
-    // Parse Budgets
+    // 3. Parse Budgets & Trim Keys
     const finalBudgets: Record<string, number> = {};
     Object.entries(finalBudgetsMap).forEach(([key, value]) => {
-      finalBudgets[key] = parseValue(value);
+      // Trim de key voor de zekerheid
+      const cleanKey = key.trim();
+      if (cleanKey) {
+        finalBudgets[cleanKey] = parseValue(value);
+      }
     });
 
     onSave(finalBudgets, finalIncome, localSheetUrl);
@@ -108,7 +118,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     alert('Alle uitgaven zijn naar de Sheet verstuurd!');
   };
 
-  // Berekeningen voor weergave
+  // Berekeningen voor weergave in de balk onderin
   const totalBudget = Object.values(localBudgets).reduce((sum, val) => sum + parseValue(val), 0);
   const currentIncomeNum = parseValue(localIncomeStr);
   const isOverBudget = totalBudget > currentIncomeNum;
@@ -129,7 +139,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
           {/* Income Section */}
           <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-100">
             <label className="text-sm font-bold text-cyan-900 block mb-1">Maandelijkse Inkomsten</label>
-            <p className="text-xs text-cyan-700 mb-2">Vul hier je netto maandinkomen in.</p>
+            <p className="text-xs text-cyan-700 mb-2">Vul hier je netto maandinkomen in (bijv. 2500,00).</p>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">€</span>
               <input
@@ -241,7 +251,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
                </button>
              </div>
              <p className="text-xs text-gray-400 mt-2">
-               Tip: Vul een naam in en klik op Opslaan; het wordt automatisch toegevoegd.
+               Tip: Klik op '+' of direct op 'Opslaan' om toe te voegen.
              </p>
           </div>
         </div>
