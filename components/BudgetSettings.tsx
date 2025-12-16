@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../constants';
 import { Save, Plus, AlertTriangle, Trash2, Sheet, UploadCloud } from 'lucide-react';
 import { Expense } from '../types';
@@ -14,8 +14,11 @@ interface BudgetSettingsProps {
 }
 
 export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income, sheetUrl, allExpenses, onSave, onClose }) => {
+  // We gebruiken strings voor lokale state zodat inputs makkelijk leeggemaakt kunnen worden
   const [localBudgets, setLocalBudgets] = useState<Record<string, number>>({ ...budgets });
-  const [localIncome, setLocalIncome] = useState<number>(income);
+  
+  // Als income 0 is, maken we het veld leeg voor betere UX, anders string waarde
+  const [localIncomeStr, setLocalIncomeStr] = useState<string>(income > 0 ? income.toString() : '');
   const [localSheetUrl, setLocalSheetUrl] = useState<string>(sheetUrl || '');
   const [isSyncing, setIsSyncing] = useState(false);
   
@@ -23,18 +26,27 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryAmount, setNewCategoryAmount] = useState('');
 
-  const handleChange = (category: string, value: string) => {
+  // Handle changes for existing budget categories
+  const handleBudgetChange = (category: string, value: string) => {
+    // Sta toe dat gebruiker typt, converteer pas naar nummer bij opslaan in state object
+    // We vervangen komma door punt voor parsing
+    const normalized = value.replace(',', '.');
+    const numberVal = parseFloat(normalized);
+    
     setLocalBudgets(prev => ({
       ...prev,
-      [category]: parseFloat(value) || 0
+      [category]: isNaN(numberVal) ? 0 : numberVal
     }));
   };
 
   const handleAddCategory = () => {
     if (newCategoryName && newCategoryAmount) {
+      const normalizedAmount = newCategoryAmount.replace(',', '.');
+      const amount = parseFloat(normalizedAmount) || 0;
+
       setLocalBudgets(prev => ({
         ...prev,
-        [newCategoryName]: parseFloat(newCategoryAmount) || 0
+        [newCategoryName]: amount
       }));
       setNewCategoryName('');
       setNewCategoryAmount('');
@@ -50,7 +62,9 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
   };
 
   const handleSave = () => {
-    onSave(localBudgets, localIncome, localSheetUrl);
+    // Parse income string to float
+    const finalIncome = parseFloat(localIncomeStr.replace(',', '.')) || 0;
+    onSave(localBudgets, finalIncome, localSheetUrl);
     onClose();
   };
 
@@ -63,7 +77,9 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
   };
 
   const totalBudget = (Object.values(localBudgets) as number[]).reduce((a, b) => a + b, 0);
-  const isOverBudget = totalBudget > localIncome;
+  // Bereken huidige income nummer voor validatie
+  const currentIncomeNum = parseFloat(localIncomeStr.replace(',', '.')) || 0;
+  const isOverBudget = totalBudget > currentIncomeNum;
   const categories = Object.keys(localBudgets);
 
   return (
@@ -82,9 +98,16 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">€</span>
               <input
-                type="number"
-                value={localIncome}
-                onChange={(e) => setLocalIncome(parseFloat(e.target.value) || 0)}
+                type="text"
+                inputMode="decimal"
+                placeholder="0"
+                value={localIncomeStr}
+                onChange={(e) => {
+                  // Alleen cijfers, komma en punt toestaan
+                  if (/^[\d,.]*$/.test(e.target.value)) {
+                    setLocalIncomeStr(e.target.value);
+                  }
+                }}
                 className="w-full pl-7 pr-3 py-2 border border-cyan-200 rounded-md focus:ring-primary focus:border-primary font-semibold text-gray-800"
               />
             </div>
@@ -133,7 +156,8 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
                     <input
                       type="number"
                       value={localBudgets[category]}
-                      onChange={(e) => handleChange(category, e.target.value)}
+                      onFocus={(e) => e.target.select()} // Selecteer alles bij klik
+                      onChange={(e) => handleBudgetChange(category, e.target.value)}
                       className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary text-right"
                     />
                   </div>
@@ -163,10 +187,13 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
                  className="flex-1 p-2 border border-gray-300 rounded-md text-sm"
                />
                <input 
-                 type="number" 
+                 type="text" 
+                 inputMode="decimal"
                  placeholder="Bedrag" 
                  value={newCategoryAmount}
-                 onChange={(e) => setNewCategoryAmount(e.target.value)}
+                 onChange={(e) => {
+                   if (/^[\d,.]*$/.test(e.target.value)) setNewCategoryAmount(e.target.value);
+                 }}
                  className="w-24 p-2 border border-gray-300 rounded-md text-sm"
                />
                <button 
@@ -193,21 +220,20 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
 
           {isOverBudget && (
             <p className="text-xs text-red-600 text-center">
-              Let op: Je budget is {formatCurrency(totalBudget - localIncome)} hoger dan je inkomsten!
+              Let op: Je budget is {formatCurrency(totalBudget - currentIncomeNum)} hoger dan je inkomsten!
             </p>
           )}
 
           <button 
             onClick={handleSave}
-            disabled={isOverBudget}
             className={`w-full font-medium py-3 rounded-lg flex items-center justify-center transition-colors ${
               isOverBudget 
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                ? 'bg-gray-800 hover:bg-black text-white' // Allow save even if over budget, user choice
                 : 'bg-primary hover:bg-secondary text-white'
             }`}
           >
             <Save className="w-5 h-5 mr-2" />
-            Opslaan & Sluiten
+            {isOverBudget ? 'Toch Opslaan' : 'Opslaan & Sluiten'}
           </button>
         </div>
       </div>

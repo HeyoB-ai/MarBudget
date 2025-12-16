@@ -3,7 +3,7 @@ import { ReceiptScanner } from './components/ReceiptScanner';
 import { BudgetOverview } from './components/BudgetOverview';
 import { BudgetSettings } from './components/BudgetSettings';
 import { Expense, Budget } from './types';
-import { formatCurrency } from './constants';
+import { formatCurrency, INITIAL_BUDGETS } from './constants';
 import { postToGoogleSheet } from './services/sheetService';
 import { Wallet, Settings, List, Trash2, ChevronLeft, ChevronRight, LogOut, Shield } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -48,10 +48,14 @@ const Dashboard = () => {
       .select('category, limit_amount')
       .eq('tenant_id', tenant!.id);
     
-    if (budgetData) {
+    if (budgetData && budgetData.length > 0) {
       const budgetMap: Record<string, number> = {};
       budgetData.forEach((b: any) => budgetMap[b.category] = b.limit_amount);
       setBudgets(budgetMap);
+    } else {
+      // Fallback: Als er geen budgetten in de DB staan, laad de defaults
+      console.log("Geen budgetten gevonden, laden defaults...");
+      setBudgets(INITIAL_BUDGETS);
     }
 
     // 2. Fetch Income
@@ -122,7 +126,6 @@ const Dashboard = () => {
     setIncome(newIncome);
 
     // Update Income
-    // Find existing income ID or insert logic skipped for brevity, simpler to upsert/update based on tenant
     const { data: existingIncome } = await supabase.from('incomes').select('id').eq('tenant_id', tenant!.id).maybeSingle();
     if (existingIncome) {
       await supabase.from('incomes').update({ amount: newIncome }).eq('id', existingIncome.id);
@@ -135,10 +138,8 @@ const Dashboard = () => {
        await supabase.from('tenants').update({ sheet_url: newSheetUrl }).eq('id', tenant!.id);
     }
 
-    // Update Budgets (Full sync approach: delete all for tenant -> insert new)
-    // In production, better to diff updates. Here simpler:
-    // Note: This is aggressive. A better way is Upsert based on category + tenant_id unique constraint.
-    
+    // Update Budgets
+    // We loopen door de nieuwe budgets en slaan ze op
     for (const [cat, limit] of Object.entries(newBudgets)) {
       const { error } = await supabase
         .from('budgets')
@@ -148,6 +149,9 @@ const Dashboard = () => {
         );
       if (error) console.error("Budget update fail", error);
     }
+    
+    // Optioneel: Verwijder categorieën uit DB die niet meer in newBudgets staan
+    // Voor nu laten we dit simpel (alleen update/insert)
   };
 
   // Date Navigation Handlers
@@ -176,7 +180,8 @@ const Dashboard = () => {
     );
   });
 
-  const categoryList = Object.keys(budgets).length > 0 ? Object.keys(budgets) : ['Overig'];
+  // Als er budgetten zijn, gebruik die keys als categorieën. Anders de fallback 'Overig' of de default keys.
+  const categoryList = Object.keys(budgets).length > 0 ? Object.keys(budgets) : Object.keys(INITIAL_BUDGETS);
   const monthLabel = selectedMonth.toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' });
 
   return (
