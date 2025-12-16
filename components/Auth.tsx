@@ -19,8 +19,6 @@ export const Auth = () => {
     const url = config.VITE_SUPABASE_URL;
     const key = config.VITE_SUPABASE_ANON_KEY;
     
-    console.log("Auth Config Check - URL configured:", !!url, "Key configured:", !!key);
-
     // Check of URL of Key ontbreekt of placeholder is
     if (!url || url === "undefined" || url.includes('placeholder') || !key || key === "undefined" || key === 'placeholder-key' || key.length < 10) {
       setIsConfigured(false);
@@ -55,8 +53,18 @@ export const Auth = () => {
         if (error) throw error;
       }
     } catch (error: any) {
-      console.error("Auth error:", error);
-      setError(error.message || "Er is een fout opgetreden.");
+      console.error("Auth error details:", error);
+      
+      let msg = error.message || "Er is een fout opgetreden.";
+      
+      // Specifieke hulp voor de 401 API Key fout
+      if (msg.includes("Invalid API key") || (error.status === 401 && !msg.includes("Email not confirmed") && !msg.includes("Invalid login credentials"))) {
+        msg = "Fout: Ongeldige API Sleutel (401). Controleer of VITE_SUPABASE_ANON_KEY correct is ingesteld in je omgevingsvariabelen (bijv. geen spaties).";
+      } else if (msg.includes("Invalid login credentials")) {
+        msg = "Ongeldig e-mailadres of wachtwoord.";
+      }
+
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -71,17 +79,17 @@ export const Auth = () => {
             <h1 className="text-xl font-bold">Setup Vereist</h1>
           </div>
           <p className="text-gray-600 mb-4">
-            De applicatie kan de database sleutels niet vinden in Netlify.
+            De applicatie kan de database sleutels niet vinden.
           </p>
           <div className="bg-gray-100 p-4 rounded text-sm mb-4">
-            <h3 className="font-bold mb-2">Controleer je Netlify Instellingen:</h3>
+            <h3 className="font-bold mb-2">Controleer Instellingen:</h3>
             <ul className="list-disc list-inside space-y-1 text-gray-700">
-              <li>Environment Variable <code>VITE_SUPABASE_URL</code> moet bestaan.</li>
-              <li>Environment Variable <code>VITE_SUPABASE_ANON_KEY</code> moet bestaan.</li>
+              <li>Environment Variable <code>VITE_SUPABASE_URL</code></li>
+              <li>Environment Variable <code>VITE_SUPABASE_ANON_KEY</code></li>
             </ul>
           </div>
           <p className="text-sm font-semibold text-gray-800">
-            Belangrijk: Na het aanpassen van variabelen moet je via het "Deploys" tabblad kiezen voor "Trigger deploy" -&gt; "Clear cache and deploy site".
+            Herstart de server na wijzigingen in .env of deploy instellingen.
           </p>
         </div>
       </div>
@@ -101,7 +109,7 @@ export const Auth = () => {
         </h1>
         
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm">
+          <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm border border-red-200">
             {error}
           </div>
         )}
