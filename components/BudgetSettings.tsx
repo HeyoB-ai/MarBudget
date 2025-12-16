@@ -62,7 +62,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     alert('Alle uitgaven zijn naar de Sheet verstuurd!');
   };
 
-  const totalBudget = Object.values(localBudgets).reduce((a, b) => a + b, 0);
+  const totalBudget = (Object.values(localBudgets) as number[]).reduce((a, b) => a + b, 0);
   const isOverBudget = totalBudget > localIncome;
   const categories = Object.keys(localBudgets);
 

@@ -27,7 +27,7 @@ export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ expenses, budget
     return { limit, spent, remaining, percentage };
   };
 
-  const totalBudget = Object.values(budgets).reduce((a, b) => a + b, 0);
+  const totalBudget = (Object.values(budgets) as number[]).reduce((a, b) => a + b, 0);
   // Gebruik ook hier Number() casting voor veiligheid
   const totalSpent = expenses.reduce((a, b) => a + (Number(b.amount) || 0), 0);
   const totalRemaining = totalBudget - totalSpent;
