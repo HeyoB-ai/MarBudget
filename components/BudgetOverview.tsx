@@ -7,10 +7,11 @@ import { AlertCircle } from 'lucide-react';
 interface BudgetOverviewProps {
   expenses: Expense[];
   budgets: Record<string, number>;
+  income: number;
   currentMonth: Date;
 }
 
-export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ expenses, budgets, currentMonth }) => {
+export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ expenses, budgets, income, currentMonth }) => {
   
   const calculateStats = (category: string) => {
     const limit = budgets[category] || 0;
@@ -27,10 +28,19 @@ export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ expenses, budget
     return { limit, spent, remaining, percentage };
   };
 
-  const totalBudget = (Object.values(budgets) as number[]).reduce((a, b) => a + b, 0);
+  const totalBudgeted = (Object.values(budgets) as number[]).reduce((a, b) => a + b, 0);
+  
+  // LOGIC CHANGE: 
+  // Als income > 0 is, gebruiken we dat als het "Totaal".
+  // Zo niet, vallen we terug op de som van de categorieën (totalBudgeted).
+  const effectiveTotalLimit = income > 0 ? income : totalBudgeted;
+
   // Gebruik ook hier Number() casting voor veiligheid
   const totalSpent = expenses.reduce((a, b) => a + (Number(b.amount) || 0), 0);
-  const totalRemaining = totalBudget - totalSpent;
+  
+  // Resterend van je totale pot (inkomsten)
+  const totalRemaining = effectiveTotalLimit - totalSpent;
+  
   const categoriesList = Object.keys(budgets);
 
   // Format month name for display
@@ -53,7 +63,14 @@ export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ expenses, budget
         <div className="flex justify-between items-end">
           <div>
              <span className="text-3xl font-bold block">{formatCurrency(totalRemaining)}</span>
-             <span className="text-cyan-200 text-sm">beschikbaar van {formatCurrency(totalBudget)}</span>
+             <span className="text-cyan-200 text-sm">
+               beschikbaar van {formatCurrency(effectiveTotalLimit)}
+             </span>
+             {income > 0 && income !== totalBudgeted && (
+                <span className="block text-xs text-cyan-300/80 mt-1">
+                  (Gebudgetteerd: {formatCurrency(totalBudgeted)})
+                </span>
+             )}
           </div>
           <div className="text-right">
              <span className="block text-2xl font-semibold opacity-90">{formatCurrency(totalSpent)}</span>
@@ -65,7 +82,7 @@ export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ expenses, budget
         <div className="mt-4 bg-black/20 rounded-full h-2 overflow-hidden">
           <div 
             className="h-full bg-white/90 rounded-full transition-all duration-500"
-            style={{ width: `${Math.min((totalSpent / totalBudget) * 100, 100)}%` }}
+            style={{ width: `${Math.min((totalSpent / effectiveTotalLimit) * 100, 100)}%` }}
           />
         </div>
       </div>

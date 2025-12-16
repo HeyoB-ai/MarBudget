@@ -271,6 +271,7 @@ const Dashboard = () => {
              <BudgetOverview 
                 expenses={currentMonthExpenses} 
                 budgets={budgets} 
+                income={income}
                 currentMonth={selectedMonth}
              />
           </div>
