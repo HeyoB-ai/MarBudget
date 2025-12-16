@@ -6,16 +6,32 @@ const config = typeof __APP_CONFIG__ !== 'undefined' ? __APP_CONFIG__ : { VITE_S
 const envUrl = config.VITE_SUPABASE_URL;
 const envKey = config.VITE_SUPABASE_ANON_KEY;
 
+// Helper to clean keys (remove quotes if accidentally pasted in env vars, remove whitespace)
+const cleanVar = (str: string) => {
+  if (!str) return '';
+  return str.trim().replace(/^["']|["']$/g, ''); // Removes start/end quotes
+};
+
 // Fallback logic
-const supabaseUrl = (envUrl && envUrl !== "undefined" && envUrl.length > 0) ? envUrl : 'https://placeholder.supabase.co';
-// Ensure we trim whitespace which can cause 401 errors
-const supabaseAnonKey = (envKey && envKey !== "undefined" && envKey.length > 0) ? envKey.trim() : 'placeholder-key';
+const supabaseUrl = (envUrl && envUrl !== "undefined" && envUrl.length > 0) ? cleanVar(envUrl) : 'https://placeholder.supabase.co';
+const supabaseAnonKey = (envKey && envKey !== "undefined" && envKey.length > 0) ? cleanVar(envKey) : 'placeholder-key';
 
 if (supabaseUrl === 'https://placeholder.supabase.co' || supabaseAnonKey === 'placeholder-key') {
   console.warn("⚠️ Supabase is not configured correctly.");
 } else {
-  // Safe logging for debugging (first 5 chars)
-  console.log(`Supabase Client Initialized: ${supabaseUrl.substring(0, 15)}... | Key: ${supabaseAnonKey.substring(0, 5)}...`);
+  // Safe logging for debugging
+  console.log(`Supabase Client Initialized: ${supabaseUrl} | Key Length: ${supabaseAnonKey.length}`);
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// We expliciet de headers meegeven om zeker te zijn dat de apikey goed aankomt
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+  global: {
+    headers: {
+      'apikey': supabaseAnonKey,
+    },
+  },
+});
