@@ -16,7 +16,6 @@ export default defineConfig(({ mode }) => {
 
   // Resolve variables from various possible sources
   const supabaseUrl = getEnv(['VITE_SUPABASE_URL', 'SUPABASE_URL']);
-  // Support VITE_SUPABASE_ANON_KEY, SUPABASE_ANON_KEY, and common mistake SUPABASE_KEY
   const supabaseKey = getEnv(['VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY', 'VITE_SUPABASE_KEY', 'SUPABASE_KEY']);
   const googleKey = getEnv(['VITE_API_KEY', 'VITE_GOOGLE_API_KEY', 'API_KEY', 'GOOGLE_API_KEY']);
   
