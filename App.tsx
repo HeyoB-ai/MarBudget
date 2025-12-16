@@ -121,11 +121,11 @@ const Dashboard = () => {
   };
 
   const handleUpdateSettings = async (newBudgets: Record<string, number>, newIncome: number, newSheetUrl: string) => {
-    // Update local state
+    // 1. Update local state immediately for responsiveness
     setBudgets(newBudgets);
     setIncome(newIncome);
 
-    // Update Income
+    // 2. Update Income in DB
     const { data: existingIncome } = await supabase.from('incomes').select('id').eq('tenant_id', tenant!.id).maybeSingle();
     if (existingIncome) {
       await supabase.from('incomes').update({ amount: newIncome }).eq('id', existingIncome.id);
@@ -133,25 +133,43 @@ const Dashboard = () => {
       await supabase.from('incomes').insert({ tenant_id: tenant!.id, amount: newIncome });
     }
 
-    // Update Tenant Sheet URL (Admin only)
+    // 3. Update Tenant Sheet URL (Admin only)
     if (role === 'master_admin') {
        await supabase.from('tenants').update({ sheet_url: newSheetUrl }).eq('id', tenant!.id);
     }
 
-    // Update Budgets
-    // We loopen door de nieuwe budgets en slaan ze op
+    // 4. Smart Budget Sync (Update existing, Insert new, Delete removed)
+    
+    // First, fetch what is currently in the DB to know what to delete
+    const { data: existingBudgets } = await supabase
+      .from('budgets')
+      .select('category')
+      .eq('tenant_id', tenant!.id);
+
+    const existingCategories = existingBudgets?.map(b => b.category) || [];
+    const newCategories = Object.keys(newBudgets);
+
+    // Identify deletions
+    const categoriesToDelete = existingCategories.filter(cat => !newCategories.includes(cat));
+
+    // Execute deletions
+    if (categoriesToDelete.length > 0) {
+      await supabase
+        .from('budgets')
+        .delete()
+        .eq('tenant_id', tenant!.id)
+        .in('category', categoriesToDelete);
+    }
+
+    // Execute Upserts
     for (const [cat, limit] of Object.entries(newBudgets)) {
-      const { error } = await supabase
+      await supabase
         .from('budgets')
         .upsert(
            { tenant_id: tenant!.id, category: cat, limit_amount: limit }, 
            { onConflict: 'tenant_id, category' }
         );
-      if (error) console.error("Budget update fail", error);
     }
-    
-    // Optioneel: Verwijder categorieën uit DB die niet meer in newBudgets staan
-    // Voor nu laten we dit simpel (alleen update/insert)
   };
 
   // Date Navigation Handlers
@@ -181,7 +199,7 @@ const Dashboard = () => {
   });
 
   // Als er budgetten zijn, gebruik die keys als categorieën. Anders de fallback 'Overig' of de default keys.
-  const categoryList = Object.keys(budgets).length > 0 ? Object.keys(budgets) : Object.keys(INITIAL_BUDGETS);
+  const categoryList = Object.keys(budgets).length > 0 ? Object.keys(budgets).sort() : Object.keys(INITIAL_BUDGETS).sort();
   const monthLabel = selectedMonth.toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' });
 
   return (
