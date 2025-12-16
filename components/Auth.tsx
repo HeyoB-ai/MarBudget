@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Wallet } from 'lucide-react';
+import { Wallet, AlertTriangle } from 'lucide-react';
 
 export const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -9,9 +9,23 @@ export const Auth = () => {
   const [fullName, setFullName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConfigured, setIsConfigured] = useState(true);
+
+  useEffect(() => {
+    // Check configuratie
+    const url = process.env.VITE_SUPABASE_URL;
+    const key = process.env.VITE_SUPABASE_ANON_KEY;
+    
+    // Check of URL of Key ontbreekt of placeholder is
+    if (!url || url.includes('placeholder') || !key || key === 'placeholder-key' || key.length < 10) {
+      setIsConfigured(false);
+    }
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isConfigured) return;
+    
     setLoading(true);
     setError(null);
 
@@ -36,11 +50,38 @@ export const Auth = () => {
         if (error) throw error;
       }
     } catch (error: any) {
-      setError(error.message);
+      console.error("Auth error:", error);
+      setError(error.message || "Er is een fout opgetreden.");
     } finally {
       setLoading(false);
     }
   };
+
+  if (!isConfigured) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
+        <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md border-l-4 border-amber-500">
+          <div className="flex items-center mb-4 text-amber-600">
+            <AlertTriangle className="w-8 h-8 mr-3" />
+            <h1 className="text-xl font-bold">Setup Vereist</h1>
+          </div>
+          <p className="text-gray-600 mb-4">
+            De applicatie kan de database sleutels niet vinden in Netlify.
+          </p>
+          <div className="bg-gray-100 p-4 rounded text-sm mb-4">
+            <h3 className="font-bold mb-2">Controleer je Netlify Instellingen:</h3>
+            <ul className="list-disc list-inside space-y-1 text-gray-700">
+              <li>Environment Variable <code>VITE_SUPABASE_URL</code> moet bestaan.</li>
+              <li>Environment Variable <code>VITE_SUPABASE_ANON_KEY</code> moet bestaan (Hernoem 'anon_public' als je die hebt).</li>
+            </ul>
+          </div>
+          <p className="text-sm font-semibold text-gray-800">
+            Belangrijk: Na het aanpassen van variabelen moet je via het "Deploys" tabblad kiezen voor "Trigger deploy" -> "Clear cache and deploy site".
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
