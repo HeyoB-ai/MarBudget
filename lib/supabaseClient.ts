@@ -1,16 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Access environment variables injected via Vite's 'define' plugin.
-// If these are missing in the environment, they will be empty strings.
-const envUrl = process.env.VITE_SUPABASE_URL;
-const envKey = process.env.VITE_SUPABASE_ANON_KEY;
+// Veilige toegang tot environment variables
+// We gebruiken (import.meta.env || {}) om te voorkomen dat de app crasht als env undefined is
+const env = (import.meta.env || {}) as any;
+
+const envUrl = env.VITE_SUPABASE_URL;
+const envKey = env.VITE_SUPABASE_ANON_KEY;
 
 // Validate configuration
 if (!envUrl || !envKey) {
-  console.warn("⚠️ LET OP: Supabase URL of Key ontbreekt! De app werkt in demo-modus en kan geen data opslaan.");
+  console.warn("⚠️ LET OP: Supabase URL of Key ontbreekt! De app werkt mogelijk niet correct.");
 }
 
-// Fallback to placeholder to prevent "supabaseUrl is required" crash during app initialization
+// Fallback to placeholder to prevent crash during initialization if envs are missing
 const supabaseUrl = envUrl && envUrl.length > 0 ? envUrl : 'https://placeholder.supabase.co';
 const supabaseAnonKey = envKey && envKey.length > 0 ? envKey : 'placeholder-key';
 

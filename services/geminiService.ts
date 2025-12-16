@@ -20,7 +20,14 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const analyzeReceipt = async (base64Image: string, mimeType: string, availableCategories: string[]): Promise<ReceiptAnalysisResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Use the global constant defined in vite.config.ts
+  const apiKey = __GOOGLE_API_KEY__;
+  
+  if (!apiKey) {
+    throw new Error("API Key ontbreekt. Controleer je configuratie.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: apiKey });
 
   const schema = {
     type: Type.OBJECT,

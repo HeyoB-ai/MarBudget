@@ -12,9 +12,10 @@ export const Auth = () => {
   const [isConfigured, setIsConfigured] = useState(true);
 
   useEffect(() => {
-    // Check configuratie
-    const url = process.env.VITE_SUPABASE_URL;
-    const key = process.env.VITE_SUPABASE_ANON_KEY;
+    // Check configuratie via standaard Vite env
+    const env = (import.meta.env || {}) as any;
+    const url = env.VITE_SUPABASE_URL;
+    const key = env.VITE_SUPABASE_ANON_KEY;
     
     // Check of URL of Key ontbreekt of placeholder is
     if (!url || url.includes('placeholder') || !key || key === 'placeholder-key' || key.length < 10) {
@@ -72,11 +73,11 @@ export const Auth = () => {
             <h3 className="font-bold mb-2">Controleer je Netlify Instellingen:</h3>
             <ul className="list-disc list-inside space-y-1 text-gray-700">
               <li>Environment Variable <code>VITE_SUPABASE_URL</code> moet bestaan.</li>
-              <li>Environment Variable <code>VITE_SUPABASE_ANON_KEY</code> moet bestaan (Hernoem 'anon_public' als je die hebt).</li>
+              <li>Environment Variable <code>VITE_SUPABASE_ANON_KEY</code> moet bestaan.</li>
             </ul>
           </div>
           <p className="text-sm font-semibold text-gray-800">
-            Belangrijk: Na het aanpassen van variabelen moet je via het "Deploys" tabblad kiezen voor "Trigger deploy" -> "Clear cache and deploy site".
+            Belangrijk: Na het aanpassen van variabelen moet je via het "Deploys" tabblad kiezen voor "Trigger deploy" -&gt; "Clear cache and deploy site".
           </p>
         </div>
       </div>

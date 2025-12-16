@@ -3,31 +3,22 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
-  // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
-  const env = loadEnv(mode, (process as any).cwd(), '');
+  const env = loadEnv(mode, process.cwd(), '');
   
-  // Try to find the key in various locations.
-  const rawApiKey = env.VITE_API_KEY || env.API_KEY || process.env.VITE_API_KEY || process.env.API_KEY;
-  const apiKey = rawApiKey ? rawApiKey.replace(/["']/g, "").trim() : "";
+  // Haal de Google API Key op. Netlify gebruikt vaak 'API_KEY', lokaal vaak 'VITE_API_KEY'.
+  // We mappen deze naar een globale constante __GOOGLE_API_KEY__.
+  const googleKey = env.VITE_API_KEY || env.API_KEY || process.env.VITE_API_KEY || process.env.API_KEY || '';
   
-  // Load Supabase configuration
-  const supabaseUrl = env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
-
-  // Log to the BUILD console
-  if (apiKey) {
-    console.log("✅ SUCCESS: API_KEY found during build.");
-  } else {
-    console.warn("⚠️ WARNING: API_KEY not found in environment variables during build.");
-  }
+  // We loggen even of de keys gevonden zijn (veilig, alleen boolean loggen)
+  console.log(`Build config: Google Key present: ${!!googleKey}, Supabase URL present in env: ${!!env.VITE_SUPABASE_URL}`);
 
   return {
     plugins: [react()],
     define: {
-      // Define global variables for the client
-      'process.env.API_KEY': JSON.stringify(apiKey),
-      'process.env.VITE_SUPABASE_URL': JSON.stringify(supabaseUrl),
-      'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
+      // Alleen de Google Key mappen we handmatig omdat die mogelijk geen VITE_ prefix heeft in Netlify
+      __GOOGLE_API_KEY__: JSON.stringify(googleKey),
+      // We definiëren process.env leeg om crashes in sommige libraries te voorkomen
+      'process.env': {}
     },
   };
 });
