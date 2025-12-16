@@ -46,11 +46,14 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
   };
 
   const handleAddCategory = () => {
-    if (newCategoryName && newCategoryAmount) {
-      // Voeg toe aan de lijst. De string waarde blijft string tot aan opslaan.
+    if (newCategoryName) {
+      // Voeg toe aan de lijst.
+      // Als bedrag leeg is, gebruiken we '0'
+      const amountStr = newCategoryAmount === '' ? '0' : newCategoryAmount;
+      
       setLocalBudgets(prev => ({
         ...prev,
-        [newCategoryName]: newCategoryAmount
+        [newCategoryName]: amountStr
       }));
       setNewCategoryName('');
       setNewCategoryAmount('');

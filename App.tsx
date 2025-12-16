@@ -121,54 +121,71 @@ const Dashboard = () => {
   };
 
   const handleUpdateSettings = async (newBudgets: Record<string, number>, newIncome: number, newSheetUrl: string) => {
+    if (!tenant) return;
+
     // 1. Update local state immediately for responsiveness
     setBudgets(newBudgets);
     setIncome(newIncome);
 
-    // 2. Update Income in DB
-    const { data: existingIncome } = await supabase.from('incomes').select('id').eq('tenant_id', tenant!.id).maybeSingle();
-    if (existingIncome) {
-      await supabase.from('incomes').update({ amount: newIncome }).eq('id', existingIncome.id);
-    } else {
-      await supabase.from('incomes').insert({ tenant_id: tenant!.id, amount: newIncome });
-    }
+    try {
+      // 2. Update Income in DB
+      const { data: existingIncome, error: incomeFetchError } = await supabase.from('incomes').select('id').eq('tenant_id', tenant.id).maybeSingle();
+      
+      if (incomeFetchError) throw incomeFetchError;
 
-    // 3. Update Tenant Sheet URL (Admin only)
-    if (role === 'master_admin') {
-       await supabase.from('tenants').update({ sheet_url: newSheetUrl }).eq('id', tenant!.id);
-    }
+      if (existingIncome) {
+        const { error } = await supabase.from('incomes').update({ amount: newIncome }).eq('id', existingIncome.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('incomes').insert({ tenant_id: tenant.id, amount: newIncome });
+        if (error) throw error;
+      }
 
-    // 4. Smart Budget Sync (Update existing, Insert new, Delete removed)
-    
-    // First, fetch what is currently in the DB to know what to delete
-    const { data: existingBudgets } = await supabase
-      .from('budgets')
-      .select('category')
-      .eq('tenant_id', tenant!.id);
+      // 3. Update Tenant Sheet URL (Admin only)
+      if (role === 'master_admin') {
+         await supabase.from('tenants').update({ sheet_url: newSheetUrl }).eq('id', tenant.id);
+      }
 
-    const existingCategories = existingBudgets?.map(b => b.category) || [];
-    const newCategories = Object.keys(newBudgets);
-
-    // Identify deletions
-    const categoriesToDelete = existingCategories.filter(cat => !newCategories.includes(cat));
-
-    // Execute deletions
-    if (categoriesToDelete.length > 0) {
-      await supabase
+      // 4. Smart Budget Sync (Update existing, Insert new, Delete removed)
+      
+      // First, fetch what is currently in the DB to know what to delete
+      const { data: existingBudgets } = await supabase
         .from('budgets')
-        .delete()
-        .eq('tenant_id', tenant!.id)
-        .in('category', categoriesToDelete);
-    }
+        .select('category')
+        .eq('tenant_id', tenant.id);
 
-    // Execute Upserts
-    for (const [cat, limit] of Object.entries(newBudgets)) {
-      await supabase
-        .from('budgets')
-        .upsert(
-           { tenant_id: tenant!.id, category: cat, limit_amount: limit }, 
-           { onConflict: 'tenant_id, category' }
-        );
+      const existingCategories = existingBudgets?.map(b => b.category) || [];
+      const newCategories = Object.keys(newBudgets);
+
+      // Identify deletions
+      const categoriesToDelete = existingCategories.filter(cat => !newCategories.includes(cat));
+
+      // Execute deletions
+      if (categoriesToDelete.length > 0) {
+        await supabase
+          .from('budgets')
+          .delete()
+          .eq('tenant_id', tenant.id)
+          .in('category', categoriesToDelete);
+      }
+
+      // Execute Upserts
+      for (const [cat, limit] of Object.entries(newBudgets)) {
+        const { error: upsertError } = await supabase
+          .from('budgets')
+          .upsert(
+             { tenant_id: tenant.id, category: cat, limit_amount: limit }, 
+             { onConflict: 'tenant_id, category' }
+          );
+        
+        if (upsertError) {
+          console.error(`Failed to save budget for ${cat}:`, upsertError);
+          // We could alert here, but since it's a loop, maybe just log for now unless it's critical
+        }
+      }
+    } catch (err: any) {
+      console.error("Critical error saving settings:", err);
+      alert("Er ging iets mis bij het opslaan van de instellingen. Controleer je verbinding.");
     }
   };
 
@@ -358,23 +375,13 @@ const Dashboard = () => {
   );
 };
 
-// Root App Component containing Provider
-export default function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  );
-}
-
-// Separate component to use the hook
 const AppContent = () => {
   const { session, loading } = useAuth();
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin h-8 w-8 text-primary rounded-full border-4 border-t-transparent border-primary"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -385,3 +392,13 @@ const AppContent = () => {
 
   return <Dashboard />;
 };
+
+const App = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+};
+
+export default App;
