@@ -12,13 +12,17 @@ export const Auth = () => {
   const [isConfigured, setIsConfigured] = useState(true);
 
   useEffect(() => {
-    // Check configuratie via standaard Vite env
-    const env = (import.meta.env || {}) as any;
-    const url = env.VITE_SUPABASE_URL;
-    const key = env.VITE_SUPABASE_ANON_KEY;
+    // Check configuratie via global config
+    // @ts-ignore
+    const config = typeof __APP_CONFIG__ !== 'undefined' ? __APP_CONFIG__ : { VITE_SUPABASE_URL: '', VITE_SUPABASE_ANON_KEY: '' };
     
+    const url = config.VITE_SUPABASE_URL;
+    const key = config.VITE_SUPABASE_ANON_KEY;
+    
+    console.log("Auth Config Check - URL configured:", !!url, "Key configured:", !!key);
+
     // Check of URL of Key ontbreekt of placeholder is
-    if (!url || url.includes('placeholder') || !key || key === 'placeholder-key' || key.length < 10) {
+    if (!url || url === "undefined" || url.includes('placeholder') || !key || key === "undefined" || key === 'placeholder-key' || key.length < 10) {
       setIsConfigured(false);
     }
   }, []);

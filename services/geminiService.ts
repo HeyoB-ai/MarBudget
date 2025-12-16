@@ -20,11 +20,12 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const analyzeReceipt = async (base64Image: string, mimeType: string, availableCategories: string[]): Promise<ReceiptAnalysisResult> => {
-  // Use the global constant defined in vite.config.ts
-  const apiKey = __GOOGLE_API_KEY__;
+  // Use global config
+  const config = typeof __APP_CONFIG__ !== 'undefined' ? __APP_CONFIG__ : { VITE_GOOGLE_API_KEY: '' };
+  const apiKey = config.VITE_GOOGLE_API_KEY;
   
-  if (!apiKey) {
-    throw new Error("API Key ontbreekt. Controleer je configuratie.");
+  if (!apiKey || apiKey === "undefined") {
+    throw new Error("API Key ontbreekt. Controleer je configuratie (VITE_GOOGLE_API_KEY of API_KEY).");
   }
 
   const ai = new GoogleGenAI({ apiKey: apiKey });

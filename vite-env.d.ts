@@ -1,12 +1,17 @@
 /// <reference types="vite/client" />
 
-// Globale constante voor de Google API Key
-declare const __GOOGLE_API_KEY__: string;
+interface AppConfig {
+  VITE_SUPABASE_URL: string;
+  VITE_SUPABASE_ANON_KEY: string;
+  VITE_GOOGLE_API_KEY: string;
+}
+
+declare const __APP_CONFIG__: AppConfig;
 
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string
   readonly VITE_SUPABASE_ANON_KEY: string
-  // Google key is via global __GOOGLE_API_KEY__ available, but usually not on env directly if mapped
+  readonly VITE_GOOGLE_API_KEY: string
 }
 
 interface ImportMeta {
