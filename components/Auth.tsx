@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Wallet, AlertTriangle } from 'lucide-react';
+import { Wallet, AlertTriangle, Users, UserPlus, ArrowRight } from 'lucide-react';
 
 export const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [familyCode, setFamilyCode] = useState(''); // For joining existing tenant
+  
+  const [mode, setMode] = useState<'login' | 'register_new' | 'register_join'>('login');
+  
   const [error, setError] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(true);
 
   useEffect(() => {
-    // Check configuratie via global config
     // @ts-ignore
     const config = typeof __APP_CONFIG__ !== 'undefined' ? __APP_CONFIG__ : { VITE_SUPABASE_URL: '', VITE_SUPABASE_ANON_KEY: '' };
-    
     const url = config.VITE_SUPABASE_URL;
     const key = config.VITE_SUPABASE_ANON_KEY;
     
-    // Check of URL of Key ontbreekt of placeholder is
     if (!url || url === "undefined" || url.includes('placeholder') || !key || key === "undefined" || key === 'placeholder-key' || key.length < 10) {
       setIsConfigured(false);
     }
@@ -33,36 +33,91 @@ export const Auth = () => {
     setError(null);
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-            },
-          },
-        });
-        if (error) throw error;
-        alert('Account aangemaakt! Controleer je e-mail voor de bevestigingslink (of log direct in als e-mailbevestiging uit staat).');
-      } else {
+      if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
+      } else {
+        // REGISTRATION FLOW
+        
+        // 1. Sign Up Auth User
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: fullName },
+          },
+        });
+
+        if (authError) throw authError;
+        if (!authData.user) throw new Error("Gebruiker kon niet worden aangemaakt.");
+
+        const userId = authData.user.id;
+        let tenantId = "";
+
+        // 2. Create Profile
+        const { error: profileError } = await supabase.from('profiles').upsert({
+          id: userId,
+          email: email,
+          full_name: fullName
+        });
+        if (profileError) console.error("Profile creation warning:", profileError);
+
+        // 3. Handle Tenant Logic
+        if (mode === 'register_new') {
+          // Create new Tenant
+          const { data: tenantData, error: tenantError } = await supabase
+            .from('tenants')
+            .insert({
+              name: `${fullName}'s Huishouden`,
+              subscription_tier: 'S',
+              max_users: 5
+            })
+            .select()
+            .single();
+          
+          if (tenantError) throw tenantError;
+          tenantId = tenantData.id;
+
+          // Add as Admin
+          const { error: memberError } = await supabase.from('tenant_members').insert({
+            tenant_id: tenantId,
+            user_id: userId,
+            role: 'master_admin'
+          });
+          if (memberError) throw memberError;
+
+        } else if (mode === 'register_join') {
+          // Join Existing Tenant
+          if (!familyCode) throw new Error("Voer een geldige Gezins Code in.");
+          
+          // Verify tenant exists
+          const { data: existingTenant, error: fetchError } = await supabase
+            .from('tenants')
+            .select('id')
+            .eq('id', familyCode)
+            .single();
+
+          if (fetchError || !existingTenant) throw new Error("Gezins Code niet gevonden. Controleer de code.");
+
+          tenantId = existingTenant.id;
+
+          // Add as Sub User
+          const { error: memberError } = await supabase.from('tenant_members').insert({
+            tenant_id: tenantId,
+            user_id: userId,
+            role: 'sub_user'
+          });
+          if (memberError) throw memberError;
+        }
       }
     } catch (error: any) {
       console.error("Auth error:", error);
-      
       let msg = error.message || "Er is een fout opgetreden.";
-      
-      if (msg.includes("Invalid login credentials")) {
-        msg = "Ongeldig e-mailadres of wachtwoord.";
-      } else if (msg.includes("Invalid API key")) {
-         msg = "Configuratiefout: API Key is ongeldig.";
-      }
-
+      if (msg.includes("Invalid login credentials")) msg = "Ongeldig e-mailadres of wachtwoord.";
+      if (msg.includes("duplicate key")) msg = "Dit e-mailadres is al in gebruik.";
       setError(msg);
     } finally {
       setLoading(false);
@@ -77,90 +132,139 @@ export const Auth = () => {
             <AlertTriangle className="w-8 h-8 mr-3" />
             <h1 className="text-xl font-bold">Setup Vereist</h1>
           </div>
-          <p className="text-gray-600 mb-4">
-            De applicatie kan de database sleutels niet vinden.
-          </p>
-          <div className="bg-gray-100 p-4 rounded text-sm mb-4">
-            <h3 className="font-bold mb-2">Controleer Instellingen:</h3>
-            <ul className="list-disc list-inside space-y-1 text-gray-700">
-              <li>Environment Variable <code>VITE_SUPABASE_URL</code></li>
-              <li>Environment Variable <code>VITE_SUPABASE_ANON_KEY</code></li>
-            </ul>
-          </div>
+          <p className="text-gray-600">De applicatie mist database configuratie.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
-      <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+        
+        {/* Header Logo */}
         <div className="flex justify-center mb-6">
-           <div className="bg-primary text-white p-3 rounded-xl">
+           <div className="bg-gradient-to-br from-primary to-secondary text-white p-4 rounded-2xl shadow-lg transform -rotate-3">
              <Wallet size={32} />
            </div>
         </div>
-        <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">
-          {isSignUp ? 'Maak een Master Account' : 'Inloggen bij MarBudget'}
-        </h1>
         
+        <h1 className="text-2xl font-bold text-center text-gray-800 mb-2">MarBudget</h1>
+        <p className="text-center text-gray-500 mb-8 text-sm">Beheer je financiën, samen of alleen.</p>
+
+        {/* Tabs */}
+        <div className="flex bg-gray-100 p-1 rounded-lg mb-6">
+          <button 
+            onClick={() => setMode('login')}
+            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${mode === 'login' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Inloggen
+          </button>
+          <button 
+            onClick={() => setMode('register_new')}
+            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${mode !== 'login' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Registreren
+          </button>
+        </div>
+
+        {mode !== 'login' && (
+           <div className="flex gap-2 mb-6">
+             <button
+               type="button"
+               onClick={() => setMode('register_new')}
+               className={`flex-1 flex flex-col items-center justify-center p-3 border-2 rounded-xl transition-all ${mode === 'register_new' ? 'border-primary bg-cyan-50 text-primary' : 'border-gray-200 hover:border-gray-300 text-gray-500'}`}
+             >
+               <UserPlus size={20} className="mb-1" />
+               <span className="text-xs font-bold">Nieuw Gezin</span>
+             </button>
+             <button
+               type="button"
+               onClick={() => setMode('register_join')}
+               className={`flex-1 flex flex-col items-center justify-center p-3 border-2 rounded-xl transition-all ${mode === 'register_join' ? 'border-primary bg-cyan-50 text-primary' : 'border-gray-200 hover:border-gray-300 text-gray-500'}`}
+             >
+               <Users size={20} className="mb-1" />
+               <span className="text-xs font-bold">Meedoen</span>
+             </button>
+           </div>
+        )}
+
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm border border-red-200">
-            {error}
+          <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-6 text-sm border border-red-100 flex items-start">
+            <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleAuth} className="space-y-4">
-          {isSignUp && (
+          
+          {mode !== 'login' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700">Volledige Naam</label>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Volledige Naam</label>
               <input
                 type="text"
-                required={isSignUp}
+                required
+                placeholder="Voor- en achternaam"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="mt-1 block w-full p-2 border border-gray-300 rounded focus:ring-primary focus:border-primary"
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               />
             </div>
           )}
+
+          {mode === 'register_join' && (
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Gezins Code</label>
+              <input
+                type="text"
+                required
+                placeholder="Vraag de code aan de beheerder"
+                value={familyCode}
+                onChange={(e) => setFamilyCode(e.target.value)}
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none font-mono"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Dit is de code van het huishouden waar je bij wilt horen.
+              </p>
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-gray-700">E-mailadres</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">E-mailadres</label>
             <input
               type="email"
               required
+              placeholder="naam@voorbeeld.nl"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full p-2 border border-gray-300 rounded focus:ring-primary focus:border-primary"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
             />
           </div>
+          
           <div>
-            <label className="block text-sm font-medium text-gray-700">Wachtwoord</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Wachtwoord</label>
             <input
               type="password"
               required
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full p-2 border border-gray-300 rounded focus:ring-primary focus:border-primary"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-white py-2 px-4 rounded hover:bg-secondary transition-colors font-medium disabled:opacity-50"
+            className="w-full bg-primary text-white py-3 px-4 rounded-xl hover:bg-secondary transition-all font-bold shadow-lg shadow-primary/30 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed mt-4"
           >
-            {loading ? 'Laden...' : (isSignUp ? 'Account Aanmaken' : 'Inloggen')}
+            {loading ? 'Moment geduld...' : (
+              mode === 'login' ? 'Inloggen' : 
+              mode === 'register_new' ? 'Start mijn Huishouden' : 'Sluit aan bij Huishouden'
+            )}
+            {!loading && <ArrowRight className="w-5 h-5 ml-2" />}
           </button>
         </form>
-
-        <div className="mt-4 text-center">
-          <button
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-sm text-primary hover:underline"
-          >
-            {isSignUp ? 'Heb je al een account? Log in' : 'Nog geen account? Registreer hier'}
-          </button>
-        </div>
       </div>
     </div>
   );
