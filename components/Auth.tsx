@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, CheckCircle, Mail, Loader2, RefreshCw } from 'lucide-react';
+import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, CheckCircle, Mail, Loader2, RefreshCw, Info } from 'lucide-react';
 
 export const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -34,33 +34,40 @@ export const Auth = () => {
     try {
       if (mode === 'login') {
         const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
-        if (loginError) throw loginError;
+        if (loginError) {
+          // Als inloggen faalt omdat email niet bevestigd is, geef dan de optie om opnieuw te sturen
+          if (loginError.message.toLowerCase().includes('confirm')) {
+             setSuccessInfo(`Je moet je e-mailadres (${email}) nog bevestigen. Klik op de link in de mail die we eerder hebben gestuurd.`);
+             setLoading(false);
+             return;
+          }
+          throw loginError;
+        }
       } else {
         // --- REGISTRATIE FLOW ---
-        const signupOptions = { 
-          data: { 
-            full_name: fullName,
-            pending_role: mode === 'register_new' ? 'master_admin' : 'sub_user',
-            pending_family_code: mode === 'register_join' ? familyCode : null
-          },
-          emailRedirectTo: window.location.origin 
-        };
-
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
           password,
-          options: signupOptions,
+          options: { 
+            data: { 
+              full_name: fullName,
+              pending_role: mode === 'register_new' ? 'master_admin' : 'sub_user',
+              pending_family_code: mode === 'register_join' ? familyCode : null
+            },
+            emailRedirectTo: window.location.origin 
+          },
         });
 
         if (authError) {
+          // Specifieke afhandeling voor rate limits
           if (authError.status === 429) {
-            throw new Error("Supabase stuurt niet vaker dan één keer per minuut een mail naar hetzelfde adres. Wacht even of check je spam.");
+            throw new Error("Supabase heeft net al een mail gestuurd. Wacht minimaal 60 seconden voordat je het opnieuw probeert.");
           }
           throw authError;
         }
         
         if (authData.user && !authData.session) {
-          setSuccessInfo(`We hebben een bevestigingsmail gestuurd naar ${email}. Klik op de link in de mail om door te gaan.`);
+          setSuccessInfo(`De bevestigingsmail is onderweg naar ${email}. Dit kan soms enkele minuten duren.`);
           setLoading(false);
           return;
         }
@@ -72,7 +79,7 @@ export const Auth = () => {
     } catch (err: any) {
       console.error("Auth error:", err);
       setError({ 
-        message: err.message || "Er is iets misgegaan bij het verbinden met de server.",
+        message: err.message || "Er is een serverfout opgetreden.",
         code: err.status || err.code 
       });
     } finally {
@@ -96,10 +103,10 @@ export const Auth = () => {
 
       if (resendError) throw resendError;
       
-      alert("Nieuwe mail is verstuurd! Check je inbox.");
+      alert("Poging geslaagd! We hebben de mail opnieuw verstuurd. Controleer nu je inbox (en spam).");
     } catch (err: any) {
       setError({ 
-        message: err.message || "Kon de mail niet opnieuw versturen. Wacht een minuutje.",
+        message: "Kon de mail niet versturen: " + (err.message || "Wacht a.u.b. 60 seconden tussen pogingen door."),
         code: err.status 
       });
     } finally {
@@ -109,11 +116,11 @@ export const Auth = () => {
 
   if (!isConfigured) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md text-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-center">
+        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md">
           <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold mb-2">Configuratie Fout</h1>
-          <p className="text-gray-500 text-sm">Geen verbinding met de database.</p>
+          <h1 className="text-xl font-bold mb-2">Systeem niet gekoppeld</h1>
+          <p className="text-gray-500 text-sm">Neem contact op met de beheerder om de database te koppelen.</p>
         </div>
       </div>
     );
@@ -137,29 +144,42 @@ export const Auth = () => {
           <div className="bg-red-50 text-red-600 p-5 rounded-2xl mb-8 text-xs border border-red-100 animate-fade-in flex items-start">
             <AlertTriangle className="w-4 h-4 mr-3 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-bold mb-0.5">Oeps!</p>
+              <p className="font-bold mb-0.5">Let op</p>
               <p>{error.message}</p>
             </div>
           </div>
         )}
 
         {successInfo ? (
-          <div className="animate-fade-in text-center py-4">
-            <div className="bg-green-50 text-green-700 p-8 rounded-[2.5rem] mb-6 border border-green-100 flex flex-col items-center">
+          <div className="animate-fade-in space-y-6">
+            <div className="bg-green-50 text-green-700 p-8 rounded-[2.5rem] border border-green-100 flex flex-col items-center text-center">
               <div className="bg-green-500 text-white p-3 rounded-full mb-4 shadow-lg shadow-green-200">
                 <Mail size={24} />
               </div>
-              <h3 className="font-bold text-xl mb-3 text-green-800 tracking-tight">Check je e-mail!</h3>
+              <h3 className="font-bold text-xl mb-3 text-green-800 tracking-tight">Check je inbox</h3>
               <p className="text-sm leading-relaxed text-green-700/80 mb-6">{successInfo}</p>
               
-              <button 
-                onClick={handleResendEmail}
-                disabled={resending}
-                className="text-[11px] bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-full font-bold uppercase tracking-wider transition-all flex items-center"
-              >
-                {resending ? <Loader2 size={14} className="animate-spin mr-2" /> : <RefreshCw size={14} className="mr-2" />}
-                Nog geen mail? Stuur opnieuw
-              </button>
+              <div className="space-y-4 w-full">
+                <button 
+                  onClick={handleResendEmail}
+                  disabled={resending}
+                  className="w-full text-[11px] bg-green-100 hover:bg-green-200 text-green-700 py-3 rounded-2xl font-bold uppercase tracking-wider transition-all flex items-center justify-center"
+                >
+                  {resending ? <Loader2 size={14} className="animate-spin mr-2" /> : <RefreshCw size={14} className="mr-2" />}
+                  Stuur mail opnieuw
+                </button>
+
+                <div className="bg-white/60 p-4 rounded-2xl text-left border border-green-200/50">
+                  <h4 className="text-[10px] font-bold text-green-800 uppercase mb-2 flex items-center">
+                    <Info size={12} className="mr-1" /> Geen mail ontvangen?
+                  </h4>
+                  <ul className="text-[10px] text-green-700 space-y-1.5 list-disc ml-3 opacity-80">
+                    <li>Kijk in je <strong>Spam</strong> of <strong>Ongewenste e-mail</strong>.</li>
+                    <li>Gebruik je <strong>Hotmail/Outlook</strong>? Deze blokkeren soms automatisch. Wacht 5 minuten.</li>
+                    <li>Nog steeds niets? Probeer een ander adres (zoals Gmail).</li>
+                  </ul>
+                </div>
+              </div>
             </div>
             
             <button 
