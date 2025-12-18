@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, CheckCircle, Mail, Loader2, RefreshCw, Info, ExternalLink, Settings2, HelpCircle } from 'lucide-react';
+// Fixed the error: Cannot find name 'AlertCircle' by adding it to the imports from lucide-react
+import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, CheckCircle, Mail, Loader2, RefreshCw, Info, ExternalLink, Settings2, HelpCircle, Bug, Trash2, AlertCircle } from 'lucide-react';
 
 export const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -15,8 +16,11 @@ export const Auth = () => {
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(true);
   const [showRedirectHelp, setShowRedirectHelp] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
 
-  const currentOrigin = window.location.origin.replace(/\/$/, ""); // Zorg voor een schone URL zonder slash aan het eind
+  // We gebruiken window.location.href om de exacte huidige pagina te pakken voor de redirect
+  const currentUrl = window.location.origin + window.location.pathname;
+  const cleanUrl = currentUrl.replace(/\/$/, "");
 
   useEffect(() => {
     // @ts-ignore
@@ -60,12 +64,12 @@ export const Auth = () => {
               pending_role: mode === 'register_new' ? 'master_admin' : 'sub_user',
               pending_family_code: mode === 'register_join' ? familyCode : null
             },
-            emailRedirectTo: currentOrigin 
+            emailRedirectTo: cleanUrl 
           },
         });
 
         if (authError) {
-          if (authError.status === 429) throw new Error("Wacht even 60 seconden.");
+          if (authError.status === 429) throw new Error("Te veel pogingen. Wacht 60 seconden.");
           throw authError;
         }
         
@@ -93,12 +97,12 @@ export const Auth = () => {
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
         email: emailTrimmed,
-        options: { emailRedirectTo: currentOrigin }
+        options: { emailRedirectTo: cleanUrl }
       });
       if (resendError) throw resendError;
-      alert(`Nieuwe mail gestuurd naar ${emailTrimmed}.`);
+      alert(`Nieuwe mail gestuurd naar ${emailTrimmed}. Gebruik ALLEEN de nieuwste mail!`);
     } catch (err: any) {
-      setError({ message: err.message || "Wacht 60 seconden." });
+      setError({ message: err.message || "Wacht even voor je opnieuw verstuurt." });
     } finally {
       setResending(false);
     }
@@ -143,7 +147,12 @@ export const Auth = () => {
                 <Mail size={24} />
               </div>
               <h3 className="font-bold text-xl mb-3 text-primary tracking-tight">Bevestig je email</h3>
-              <p className="text-sm leading-relaxed mb-6 opacity-80">{successInfo}</p>
+              <p className="text-sm leading-relaxed mb-4 opacity-80">{successInfo}</p>
+              
+              <div className="bg-amber-100 p-3 rounded-xl border border-amber-200 text-[10px] text-amber-700 font-bold flex items-center mb-6">
+                <AlertCircle size={14} className="mr-2 flex-shrink-0" />
+                LET OP: Gooi eerst alle OUDE e-mails weg!
+              </div>
               
               <div className="space-y-3 w-full">
                 <button 
@@ -159,23 +168,37 @@ export const Auth = () => {
                   onClick={() => setShowRedirectHelp(!showRedirectHelp)}
                   className="w-full text-[10px] text-primary/60 font-bold uppercase tracking-wider flex items-center justify-center py-2"
                 >
-                  <HelpCircle size={12} className="mr-1" /> Kom je op localhost terecht?
+                  <HelpCircle size={12} className="mr-1" /> Nog steeds localhost? Klik hier
                 </button>
 
                 {showRedirectHelp && (
-                  <div className="bg-white p-5 rounded-2xl text-left border border-cyan-200 shadow-inner mt-2 animate-fade-in">
-                    <h4 className="text-[11px] font-bold text-gray-800 uppercase mb-3 flex items-center">
-                      <Settings2 size={12} className="mr-1 text-primary" /> Zo los je het op:
+                  <div className="bg-white p-5 rounded-2xl text-left border border-cyan-200 shadow-inner mt-2 animate-fade-in space-y-4">
+                    <h4 className="text-[11px] font-bold text-gray-800 uppercase flex items-center">
+                      <Settings2 size={12} className="mr-1 text-primary" /> Stappenplan:
                     </h4>
                     <ol className="text-[10px] text-gray-600 space-y-3 list-decimal ml-4 leading-relaxed">
-                      <li>Ga naar je <strong>Supabase Dashboard</strong>.</li>
-                      <li>Ga naar <strong>Authentication</strong> → <strong>URL Configuration</strong>.</li>
-                      <li>Verander de <strong>Site URL</strong> naar:<br/>
-                        <code className="bg-gray-100 p-1 rounded font-mono text-primary break-all select-all block mt-1">{currentOrigin}</code>
+                      <li>Ga naar <strong>Authentication</strong> → <strong>URL Configuration</strong> in Supabase.</li>
+                      <li>Kopieer deze URL naar <strong>Site URL</strong> én <strong>Redirect URLs</strong>:<br/>
+                        <code className="bg-gray-100 p-1 rounded font-mono text-primary break-all select-all block mt-1">{cleanUrl}</code>
                       </li>
-                      <li>Druk onderaan op <strong>Save</strong>.</li>
-                      <li>Klik daarna pas op de link in de mail (of stuur een nieuwe).</li>
+                      <li>Druk op <strong>Save</strong>.</li>
+                      <li><strong>VERWIJDER</strong> nu alle e-mails in je inbox van MarBudget.</li>
+                      <li>Druk hierboven op <strong>Stuur mail opnieuw</strong> en gebruik de nieuwe mail.</li>
                     </ol>
+                    
+                    <button 
+                      onClick={() => setShowDebug(!showDebug)}
+                      className="text-[9px] text-gray-400 font-bold uppercase flex items-center pt-2 border-t border-gray-100 w-full"
+                    >
+                      <Bug size={10} className="mr-1" /> {showDebug ? "Verberg" : "Toon"} technische info
+                    </button>
+                    
+                    {showDebug && (
+                      <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 font-mono text-[9px] text-gray-400 break-all space-y-1">
+                        <div>APP_URL: {cleanUrl}</div>
+                        <div>ENV_SUPA: {isConfigured ? "GELADEN" : "MIST"}</div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
