@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, CheckCircle, Mail, Loader2, RefreshCw, Info, ExternalLink, Settings2, HelpCircle, Bug, Trash2, AlertCircle, Clock } from 'lucide-react';
+import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, CheckCircle, Mail, Loader2, RefreshCw, Info, ExternalLink, Settings2, HelpCircle, Bug, Trash2, AlertCircle, Clock, Check } from 'lucide-react';
 
 export const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -15,14 +15,24 @@ export const Auth = () => {
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(true);
   const [showRedirectHelp, setShowRedirectHelp] = useState(false);
-  const [showDebug, setShowDebug] = useState(false);
   const [rateLimitSeconds, setRateLimitSeconds] = useState<number>(0);
 
-  // We gebruiken window.location.href om de exacte huidige pagina te pakken voor de redirect
   const currentUrl = window.location.origin + window.location.pathname;
   const cleanUrl = currentUrl.replace(/\/$/, "");
 
-  // Timer voor rate limiting
+  // Automatische check of de gebruiker inmiddels bevestigd heeft
+  useEffect(() => {
+    if (successInfo) {
+      const interval = setInterval(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          window.location.reload();
+        }
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [successInfo]);
+
   useEffect(() => {
     if (rateLimitSeconds > 0) {
       const timer = setTimeout(() => setRateLimitSeconds(rateLimitSeconds - 1), 1000);
@@ -43,10 +53,11 @@ export const Auth = () => {
     if (msg.includes("after")) {
       const seconds = parseInt(msg.match(/\d+/)?.[0] || "30");
       setRateLimitSeconds(seconds);
-      return `Beveiligingspauze: Wacht ${seconds} seconden voor je weer een mail aanvraagt.`;
+      return `Te snel geklikt! Wacht ${seconds} seconden voor je weer een mail aanvraagt.`;
     }
     if (msg.includes("Invalid login credentials")) return "E-mail of wachtwoord is onjuist.";
     if (msg.includes("User already registered")) return "Dit e-mailadres is al in gebruik.";
+    if (msg.includes("Email not confirmed")) return "Je e-mail is nog niet bevestigd. Check je inbox!";
     return msg;
   };
 
@@ -56,7 +67,6 @@ export const Auth = () => {
     
     setLoading(true);
     setError(null);
-    setSuccessInfo(null);
 
     const emailTrimmed = email.trim().toLowerCase();
 
@@ -119,7 +129,7 @@ export const Auth = () => {
         options: { emailRedirectTo: cleanUrl }
       });
       if (resendError) throw resendError;
-      alert(`Nieuwe mail gestuurd naar ${emailTrimmed}. Check je SPAM als je niets ziet.`);
+      alert(`Nieuwe mail gestuurd!`);
     } catch (err: any) {
       setError({ message: parseAuthError(err) });
     } finally {
@@ -129,11 +139,11 @@ export const Auth = () => {
 
   if (!isConfigured) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-center font-sans">
         <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md border border-red-100">
           <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold mb-2">Supabase niet gekoppeld</h1>
-          <p className="text-gray-500 text-sm">Controleer je omgevingsvariabelen.</p>
+          <h1 className="text-xl font-bold mb-2 tracking-tight">Geen verbinding</h1>
+          <p className="text-gray-500 text-sm">Supabase omgevingsvariabelen ontbreken.</p>
         </div>
       </div>
     );
@@ -143,7 +153,6 @@ export const Auth = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 font-sans">
       <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md animate-fade-in relative border border-gray-100 overflow-hidden">
         
-        {/* Progress header */}
         <div className="flex flex-col items-center mb-10">
           <div className="bg-primary text-white p-4 rounded-2xl shadow-lg mb-6 transform -rotate-2">
             <Wallet size={36} />
@@ -165,49 +174,53 @@ export const Auth = () => {
               <div className="bg-primary text-white p-3 rounded-full mb-4 shadow-lg">
                 <Mail size={24} />
               </div>
-              <h3 className="font-bold text-xl mb-3 text-primary tracking-tight">Bevestig je e-mail</h3>
-              <p className="text-sm leading-relaxed mb-4 opacity-80">{successInfo}</p>
-              
-              <div className="bg-amber-100 p-3 rounded-xl border border-amber-200 text-[10px] text-amber-700 font-bold flex items-center mb-6 text-left">
-                <AlertCircle size={14} className="mr-2 flex-shrink-0" />
-                <span>LET OP: Oude mails bevatten de foute link (localhost). Gooi alle oude mails van MarBudget eerst weg!</span>
-              </div>
+              <h3 className="font-bold text-xl mb-3 text-primary tracking-tight">Bijna klaar!</h3>
+              <p className="text-sm leading-relaxed mb-6 opacity-80">
+                Klik op de link in de mail die we naar <b>{email}</b> hebben gestuurd.
+              </p>
               
               <div className="space-y-3 w-full">
                 <button 
+                  onClick={async () => {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session) window.location.reload();
+                    else {
+                      setSuccessInfo(null);
+                      setMode('login');
+                    }
+                  }}
+                  className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm shadow-lg flex items-center justify-center hover:bg-secondary transition-all active:scale-95"
+                >
+                  <Check size={18} className="mr-2" /> Ik heb bevestigd, laat me erin!
+                </button>
+
+                <button 
                   onClick={handleResendEmail}
                   disabled={resending || rateLimitSeconds > 0}
-                  className={`w-full py-3 rounded-2xl font-bold text-xs shadow-sm border flex items-center justify-center transition-all ${
+                  className={`w-full py-3 rounded-2xl font-bold text-xs flex items-center justify-center transition-all ${
                     rateLimitSeconds > 0 
-                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' 
-                    : 'bg-white text-primary border-cyan-200 hover:bg-cyan-100'
+                    ? 'text-gray-400' 
+                    : 'text-primary/60 hover:text-primary'
                   }`}
                 >
                   {resending ? <Loader2 size={14} className="animate-spin mr-2" /> : (rateLimitSeconds > 0 ? <Clock size={14} className="mr-2" /> : <RefreshCw size={14} className="mr-2" />)}
-                  {rateLimitSeconds > 0 ? `Wacht ${rateLimitSeconds}s...` : "Stuur mail opnieuw"}
+                  {rateLimitSeconds > 0 ? `Wacht ${rateLimitSeconds}s voor nieuwe mail` : "Mail niet gehad? Stuur opnieuw"}
                 </button>
 
                 <button 
                   onClick={() => setShowRedirectHelp(!showRedirectHelp)}
-                  className="w-full text-[10px] text-primary/60 font-bold uppercase tracking-wider flex items-center justify-center py-2"
+                  className="w-full text-[10px] text-gray-400 font-bold uppercase tracking-widest py-2"
                 >
-                  <HelpCircle size={12} className="mr-1" /> Kom je op localhost terecht?
+                  Help? Klik hier
                 </button>
 
                 {showRedirectHelp && (
-                  <div className="bg-white p-5 rounded-2xl text-left border border-cyan-200 shadow-inner mt-2 animate-fade-in space-y-4">
-                    <h4 className="text-[11px] font-bold text-gray-800 uppercase flex items-center">
-                      <Settings2 size={12} className="mr-1 text-primary" /> De Oplossing:
-                    </h4>
-                    <p className="text-[10px] text-gray-500 mb-2">Supabase stuurt je standaard terug naar 'localhost'. Pas dit aan:</p>
-                    <ol className="text-[10px] text-gray-600 space-y-3 list-decimal ml-4 leading-relaxed">
-                      <li>Ga in Supabase naar <strong>Authentication</strong> → <strong>URL Configuration</strong>.</li>
-                      <li>Verander <strong>Site URL</strong> naar:<br/>
-                        <code className="bg-gray-100 p-1 rounded font-mono text-primary break-all select-all block mt-1 border border-gray-200">{cleanUrl}</code>
-                      </li>
-                      <li>Voeg dezelfde URL ook toe bij <strong>Redirect URLs</strong>.</li>
-                      <li>Druk op <strong>Save</strong> onderaan de pagina.</li>
-                    </ol>
+                  <div className="bg-white p-5 rounded-2xl text-left border border-cyan-200 shadow-inner mt-2 animate-fade-in">
+                    <p className="text-[10px] text-gray-600 leading-relaxed mb-3 italic">
+                      "Ik kom op localhost terecht": Verander in Supabase Dashboard je <b>Site URL</b> naar:
+                    </p>
+                    <code className="bg-gray-100 p-2 rounded font-mono text-primary text-[9px] block mb-2 break-all">{cleanUrl}</code>
+                    <p className="text-[10px] text-gray-400 uppercase font-bold">Vergeet niet op Save te drukken!</p>
                   </div>
                 )}
               </div>
@@ -215,9 +228,9 @@ export const Auth = () => {
             
             <button 
               onClick={() => { setSuccessInfo(null); setMode('login'); setError(null); }}
-              className="w-full bg-gray-100 text-gray-600 py-4 rounded-2xl font-bold flex items-center justify-center hover:bg-gray-200 transition-all text-sm shadow-sm"
+              className="w-full text-gray-400 py-2 font-bold text-xs uppercase tracking-widest hover:text-gray-600 transition-colors"
             >
-              <ChevronLeft size={18} className="mr-2" /> Terug naar start
+              Terug naar inloggen
             </button>
           </div>
         ) : (
@@ -238,13 +251,13 @@ export const Auth = () => {
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2 ml-1 tracking-widest">E-mail</label>
                   <input type="email" required placeholder="naam@voorbeeld.nl" value={email} onChange={(e) => setEmail(e.target.value)}
-                    className="w-full p-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-sm"
+                    className="w-full p-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all outline-none text-sm"
                   />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2 ml-1 tracking-widest">Wachtwoord</label>
                   <input type="password" required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)}
-                    className="w-full p-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-sm"
+                    className="w-full p-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all outline-none text-sm"
                   />
                 </div>
                 <button type="submit" disabled={loading}
@@ -291,7 +304,7 @@ export const Auth = () => {
                   <input type="email" required placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)}
                     className="w-full p-3.5 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none text-sm"
                   />
-                  <input type="password" required placeholder="Wachtwoord (min. 6 tekens)" value={password} onChange={(e) => setPassword(e.target.value)}
+                  <input type="password" required placeholder="Wachtwoord" value={password} onChange={(e) => setPassword(e.target.value)}
                     className="w-full p-3.5 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none text-sm"
                   />
                 </div>
