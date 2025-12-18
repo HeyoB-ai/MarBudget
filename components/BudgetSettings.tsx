@@ -14,12 +14,9 @@ interface BudgetSettingsProps {
 }
 
 export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income, sheetUrl, allExpenses, onSave, onClose }) => {
-  // Initialiseer state. We zetten getallen om naar Nederlandse string notatie (1000 -> "1.000,00" of simpelweg "1000")
-  // Voor invoervelden is het makkelijker om geen duizendtallen te tonen tijdens editen, maar we staan ze wel toe bij parsen.
   const [localBudgets, setLocalBudgets] = useState<Record<string, string>>(() => {
     const formatted: Record<string, string> = {};
     Object.entries(budgets).forEach(([key, value]) => {
-      // Zet punt om naar komma voor weergave
       formatted[key] = value.toString().replace('.', ',');
     });
     return formatted;
@@ -32,30 +29,20 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
   const [localSheetUrl, setLocalSheetUrl] = useState<string>(sheetUrl || '');
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // New category state
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryAmount, setNewCategoryAmount] = useState('');
 
-  // Validatie: sta cijfers, punten en komma's toe
   const isValidNumberInput = (val: string) => /^[\d,.]*$/.test(val);
 
-  // Robuuste parse functie voor NL formaat
   const parseValue = (val: string) => {
     if (!val) return 0;
     let clean = val.toString();
-    
-    // 1. Verwijder alle punten (duizendtallen in NL)
     clean = clean.replace(/\./g, '');
-    
-    // 2. Vervang komma door punt (decimaal scheiding)
     clean = clean.replace(',', '.');
-    
-    // 3. Parse naar float
     const num = parseFloat(clean);
     return isNaN(num) ? 0 : num;
   };
 
-  // Handle changes for existing budget categories
   const handleBudgetChange = (category: string, value: string) => {
     if (isValidNumberInput(value)) {
       setLocalBudgets(prev => ({
@@ -86,20 +73,16 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
   };
 
   const handleSave = () => {
-    // 1. Check of er nog een 'hangende' nieuwe categorie is
     let finalBudgetsMap = { ...localBudgets };
     if (newCategoryName.trim()) {
        const amountStr = newCategoryAmount === '' ? '0' : newCategoryAmount;
        finalBudgetsMap[newCategoryName.trim()] = amountStr;
     }
 
-    // 2. Parse Income
     const finalIncome = parseValue(localIncomeStr);
 
-    // 3. Parse Budgets & Trim Keys
     const finalBudgets: Record<string, number> = {};
     Object.entries(finalBudgetsMap).forEach(([key, value]) => {
-      // Trim de key voor de zekerheid
       const cleanKey = key.trim();
       if (cleanKey) {
         finalBudgets[cleanKey] = parseValue(value);
@@ -115,15 +98,13 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     setIsSyncing(true);
     await postToGoogleSheet(localSheetUrl, allExpenses);
     setIsSyncing(false);
-    alert('Alle uitgaven zijn naar de Sheet verstuurd!');
+    alert('Alle uitgaven zijn naar de Budgetcoach verzonden!');
   };
 
-  // Berekeningen voor weergave in de balk onderin
   const totalBudget = Object.values(localBudgets).reduce((sum, val) => sum + parseValue(val), 0);
   const currentIncomeNum = parseValue(localIncomeStr);
   const isOverBudget = totalBudget > currentIncomeNum;
   
-  // Sorteer categorieën alfabetisch
   const categories = Object.keys(localBudgets).sort();
 
   return (
@@ -136,7 +117,6 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
         
         <div className="overflow-y-auto p-4 space-y-6 flex-1">
           
-          {/* Income Section */}
           <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-100">
             <label className="text-sm font-bold text-cyan-900 block mb-1">Maandelijkse Inkomsten</label>
             <p className="text-xs text-cyan-700 mb-2">Vul hier je netto maandinkomen in (bijv. 2500,00).</p>
@@ -155,13 +135,15 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
             </div>
           </div>
 
-          {/* Google Sheets Integration */}
+          {/* Coach Link */}
           <div className="bg-green-50 p-4 rounded-lg border border-green-100">
             <div className="flex items-center mb-2 text-green-800">
               <Sheet className="w-4 h-4 mr-2" />
-              <label className="text-sm font-bold block">Google Sheets Koppeling</label>
+              <label className="text-sm font-bold block">Koppeling met Budgetcoach</label>
             </div>
-            <p className="text-xs text-green-700 mb-2">Plak hier de Web App URL van je Google Apps Script.</p>
+            <p className="text-xs text-green-700 mb-2">
+              Plak hier de link die je van MarBudget hebt ontvangen (Google Apps Script URL). Hiermee worden je bonnetjes automatisch gedeeld voor beoordeling.
+            </p>
             <input
               type="text"
               placeholder="https://script.google.com/..."
@@ -178,7 +160,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
                 {isSyncing ? 'Bezig met versturen...' : (
                   <>
                     <UploadCloud className="w-3 h-3 mr-2" />
-                    Sync alle huidige data nu
+                    Synchroniseer alles met Coach
                   </>
                 )}
               </button>
@@ -187,14 +169,12 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
 
           <div className="border-t border-gray-100 pt-4">
             <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Budget per categorie</h3>
-            <p className="text-xs text-gray-400 mb-2">Zet een budget op €0 om de categorie te kunnen verwijderen.</p>
             <div className="space-y-3">
               {categories.map(category => {
                 const amountVal = parseValue(localBudgets[category]);
                 return (
                   <div key={category} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 gap-3">
                     <label className="text-sm font-medium text-gray-700 flex-1 break-words">{category}</label>
-                    
                     <div className="relative w-32 flex-shrink-0">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">€</span>
                       <input
@@ -206,12 +186,10 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
                         className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary text-right"
                       />
                     </div>
-                    
                     <button
                       onClick={() => handleRemoveCategory(category)}
                       disabled={amountVal > 0}
                       className={`p-2 rounded-md transition-colors ${amountVal > 0 ? 'text-gray-300 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}`}
-                      title={amountVal > 0 ? "Zet budget op 0 om te verwijderen" : "Verwijder categorie"}
                     >
                       <Trash2 size={20} />
                     </button>
@@ -221,7 +199,6 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
             </div>
           </div>
 
-          {/* Add Category Section */}
           <div className="border-t border-gray-100 pt-4">
              <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Nieuwe categorie toevoegen</h3>
              <div className="flex gap-2">
@@ -250,15 +227,10 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
                  <Plus size={20} />
                </button>
              </div>
-             <p className="text-xs text-gray-400 mt-2">
-               Tip: Klik op '+' of direct op 'Opslaan' om toe te voegen.
-             </p>
           </div>
         </div>
 
         <div className="p-4 border-t border-gray-100 bg-gray-50 space-y-3">
-          
-          {/* Validation Feedback */}
           <div className={`p-3 rounded-lg flex items-center justify-between ${isOverBudget ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
             <div className="flex items-center">
               {isOverBudget && <AlertTriangle className="w-5 h-5 mr-2" />}
@@ -266,12 +238,6 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
             </div>
             <span className="font-bold">{formatCurrency(totalBudget)}</span>
           </div>
-
-          {isOverBudget && (
-            <p className="text-xs text-red-600 text-center">
-              Let op: Je budget is {formatCurrency(totalBudget - currentIncomeNum)} hoger dan je inkomsten!
-            </p>
-          )}
 
           <button 
             onClick={handleSave}

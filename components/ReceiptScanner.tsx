@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Check, X } from 'lucide-react';
+import { Camera, Check, X, AlertCircle } from 'lucide-react';
 import { analyzeReceipt, fileToGenerativePart } from '../services/geminiService';
 import { ReceiptAnalysisResult, Expense } from '../types';
 import { generateId } from '../constants';
@@ -8,20 +8,18 @@ import { Spinner } from './Spinner';
 interface ReceiptScannerProps {
   onAddExpense: (expense: Expense) => void;
   categories: string[];
+  currentMonth: Date;
 }
 
-export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, categories }) => {
+export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, categories, currentMonth }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<ReceiptAnalysisResult | null>(null);
   
-  // Local state for the amount input string to handle "12," without auto-formatting interfering
   const [amountInput, setAmountInput] = useState<string>(""); 
-  
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync analysis result to input field when analysis completes
   useEffect(() => {
     if (analysisResult?.amount !== undefined) {
       setAmountInput(analysisResult.amount.toString().replace('.', ','));
@@ -38,16 +36,13 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
       setAnalysisResult(null);
       setAmountInput("");
 
-      // Create preview
       const base64Data = await fileToGenerativePart(file);
       setPreview(`data:${file.type};base64,${base64Data}`);
 
-      // Analyze with Gemini
       const result = await analyzeReceipt(base64Data, file.type, categories);
       setAnalysisResult(result);
     } catch (err: any) {
       console.error(err);
-      // Show the actual error message if available, otherwise generic
       setError(err.message || "Kon het bonnetje niet lezen. Probeer een duidelijkere foto.");
     } finally {
       setIsAnalyzing(false);
@@ -56,7 +51,6 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
 
   const handleSave = () => {
     if (analysisResult) {
-      // Parse the local string input (handling comma or dot)
       const parsedAmount = parseFloat(amountInput.replace(',', '.'));
       
       if (isNaN(parsedAmount)) {
@@ -89,23 +83,30 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
     fileInputRef.current?.click();
   };
 
-  // Allow manual editing of the result before saving
   const handleUpdateResult = (field: keyof ReceiptAnalysisResult, value: string | number) => {
     if (!analysisResult) return;
     setAnalysisResult({ ...analysisResult, [field]: value });
   };
 
   const handleAmountInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow typing only numbers, commas and dots
     const val = e.target.value;
+    // Allow digits, comma, dot
     if (/^[\d,.]*$/.test(val)) {
        setAmountInput(val);
-       // Update the underlying data model for consistency, though we rely on input string for saving
        const parsed = parseFloat(val.replace(',', '.'));
        if (!isNaN(parsed) && analysisResult) {
          setAnalysisResult({ ...analysisResult, amount: parsed });
        }
     }
+  };
+
+  const isDateMismatch = () => {
+    if (!analysisResult?.date) return false;
+    const expenseDate = new Date(analysisResult.date);
+    return (
+      expenseDate.getMonth() !== currentMonth.getMonth() ||
+      expenseDate.getFullYear() !== currentMonth.getFullYear()
+    );
   };
 
   return (
@@ -130,7 +131,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
             ref={fileInputRef} 
             onChange={handleFileChange} 
             accept="image/*" 
-            capture="environment" // Suggests back camera on mobile
+            capture="environment" 
             className="hidden" 
           />
         </div>
@@ -162,6 +163,17 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
 
           {analysisResult && !isAnalyzing && (
             <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+              
+              {isDateMismatch() && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-md text-xs flex items-start">
+                   <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+                   <span>
+                     <strong>Let op:</strong> De datum van deze bon ({new Date(analysisResult.date).toLocaleDateString('nl-NL')}) valt buiten de maand die je nu bekijkt. 
+                     Het bedrag wordt opgeslagen bij die maand.
+                   </span>
+                </div>
+              )}
+
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase">Winkel / Omschrijving</label>
                 <input 
@@ -205,7 +217,6 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
                   {categories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
-                  {/* Fallback optie als de categorie van AI niet in de lijst staat */}
                   {!categories.includes(analysisResult.category) && (
                     <option value={analysisResult.category}>{analysisResult.category}</option>
                   )}
@@ -217,7 +228,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
                 className="w-full bg-primary hover:bg-secondary text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center transition-colors mt-4"
               >
                 <Check className="w-5 h-5 mr-2" />
-                Toevoegen aan Budget
+                Opslaan & Toevoegen
               </button>
             </div>
           )}
