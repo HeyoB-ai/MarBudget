@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Wallet, AlertTriangle, Users, UserPlus, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Wallet, AlertTriangle, Users, UserPlus, ArrowRight, ShieldCheck, Key } from 'lucide-react';
 
 export const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [familyCode, setFamilyCode] = useState(''); // Essential for joining existing household
+  const [familyCode, setFamilyCode] = useState('');
   
-  const [mode, setMode] = useState<'login' | 'register_new' | 'register_join'>('login');
+  // mode determines what form is shown
+  const [mode, setMode] = useState<'login' | 'register_select' | 'register_new' | 'register_join'>('login');
   
   const [error, setError] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(true);
 
   useEffect(() => {
-    // Check if Supabase is properly configured
     // @ts-ignore
     const config = typeof __APP_CONFIG__ !== 'undefined' ? __APP_CONFIG__ : { VITE_SUPABASE_URL: '', VITE_SUPABASE_ANON_KEY: '' };
     const url = config.VITE_SUPABASE_URL;
@@ -64,7 +64,7 @@ export const Auth = () => {
           email: email,
           full_name: fullName
         });
-        if (profileError) console.warn("Profile mapping issue:", profileError);
+        if (profileError) console.warn("Profile issue:", profileError);
 
         // 3. Handle Tenant (Household) Logic
         if (mode === 'register_new') {
@@ -82,7 +82,7 @@ export const Auth = () => {
           if (tenantError) throw tenantError;
           tenantId = tenantData.id;
 
-          // Add as Master Admin
+          // Add as Master Admin (Superuser)
           const { error: memberError } = await supabase.from('tenant_members').insert({
             tenant_id: tenantId,
             user_id: userId,
@@ -92,9 +92,8 @@ export const Auth = () => {
 
         } else if (mode === 'register_join') {
           // --- CASE: JOIN EXISTING HOUSEHOLD (SUB-USER) ---
-          if (!familyCode) throw new Error("Voer de Gezins Code in van het huishouden.");
+          if (!familyCode) throw new Error("Voer de Gezins Code in.");
           
-          // Verify tenant exists
           const { data: existingTenant, error: fetchError } = await supabase
             .from('tenants')
             .select('id')
@@ -102,7 +101,7 @@ export const Auth = () => {
             .maybeSingle();
 
           if (fetchError || !existingTenant) {
-            throw new Error("Gezins Code niet herkend. Controleer of de code exact klopt.");
+            throw new Error("Ongeldige Gezins Code. Controleer de code.");
           }
 
           tenantId = existingTenant.id;
@@ -113,20 +112,12 @@ export const Auth = () => {
             user_id: userId,
             role: 'sub_user'
           });
-          if (memberError) {
-             if (memberError.message.includes("unique")) {
-               throw new Error("Je bent al lid van dit huishouden.");
-             }
-             throw memberError;
-          }
+          if (memberError) throw memberError;
         }
       }
     } catch (error: any) {
-      console.error("Auth process error:", error);
-      let msg = error.message || "Er is een onverwachte fout opgetreden.";
-      if (msg.includes("Invalid login credentials")) msg = "E-mailadres of wachtwoord is onjuist.";
-      if (msg.includes("User already registered")) msg = "Dit e-mailadres is al bekend bij ons.";
-      setError(msg);
+      console.error("Auth error:", error);
+      setError(error.message || "Er is een fout opgetreden.");
     } finally {
       setLoading(false);
     }
@@ -136,14 +127,10 @@ export const Auth = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border-t-4 border-amber-500">
-          <div className="flex items-center mb-4 text-amber-600">
-            <AlertTriangle className="w-10 h-10 mr-3" />
-            <h1 className="text-xl font-bold">Database Connectie Vereist</h1>
-          </div>
-          <p className="text-gray-600 mb-6">De VITE_SUPABASE variabelen ontbreken in je omgeving. Configureer deze om verder te gaan.</p>
-          <div className="bg-gray-100 p-3 rounded-lg text-xs font-mono text-gray-500">
-            Check VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY
-          </div>
+          <h1 className="text-xl font-bold text-amber-600 mb-2 flex items-center">
+            <AlertTriangle className="mr-2" /> Configuratie nodig
+          </h1>
+          <p className="text-gray-600 text-sm">Controleer je Supabase omgevingsvariabelen.</p>
         </div>
       </div>
     );
@@ -151,144 +138,178 @@ export const Auth = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md animate-fade-in">
+      <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md animate-fade-in relative overflow-hidden">
         
-        {/* Header Logo Section */}
-        <div className="flex justify-center mb-4">
-           <div className="bg-primary text-white p-4 rounded-2xl shadow-lg transform rotate-3 hover:rotate-0 transition-transform duration-300">
-             <Wallet size={32} />
-           </div>
+        {/* Header Section */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="bg-primary text-white p-4 rounded-2xl shadow-lg mb-4 transform -rotate-2 hover:rotate-0 transition-all">
+            <Wallet size={36} />
+          </div>
+          <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight">MarBudget</h1>
+          <p className="text-gray-400 text-sm font-medium">Beheer je financiën, samen of alleen.</p>
         </div>
-        
-        <h1 className="text-2xl font-bold text-center text-gray-800 mb-1 tracking-tight">MarBudget</h1>
-        <p className="text-center text-gray-400 mb-8 text-sm">Slim financieel beheer voor gezinnen.</p>
 
-        {/* Main Tabs */}
-        <div className="flex bg-gray-100 p-1.5 rounded-xl mb-6">
+        {/* Auth Mode Toggle */}
+        <div className="flex bg-gray-100 p-1 rounded-2xl mb-8">
           <button 
             onClick={() => setMode('login')}
-            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${mode === 'login' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode === 'login' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             Inloggen
           </button>
           <button 
-            onClick={() => setMode('register_new')}
-            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${mode !== 'login' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setMode('register_select')}
+            className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode !== 'login' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             Registreren
           </button>
         </div>
 
-        {/* Sub-Tabs for Registration Paths */}
-        {mode !== 'login' && (
-           <div className="grid grid-cols-2 gap-3 mb-6">
-             <button
-               type="button"
-               onClick={() => setMode('register_new')}
-               className={`flex flex-col items-center justify-center p-3 border-2 rounded-xl transition-all duration-200 ${mode === 'register_new' ? 'border-primary bg-cyan-50 text-primary' : 'border-gray-100 hover:border-gray-200 text-gray-400'}`}
-             >
-               <ShieldCheck size={24} className="mb-1" />
-               <span className="text-[10px] uppercase font-bold tracking-wider">Beheerder</span>
-               <span className="text-[9px] opacity-70">Nieuw Gezin</span>
-             </button>
-             <button
-               type="button"
-               onClick={() => setMode('register_join')}
-               className={`flex flex-col items-center justify-center p-3 border-2 rounded-xl transition-all duration-200 ${mode === 'register_join' ? 'border-primary bg-cyan-50 text-primary' : 'border-gray-100 hover:border-gray-200 text-gray-400'}`}
-             >
-               <Users size={24} className="mb-1" />
-               <span className="text-[10px] uppercase font-bold tracking-wider">Lid</span>
-               <span className="text-[9px] opacity-70">Sluit je aan</span>
-             </button>
-           </div>
-        )}
-
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-xl mb-6 text-xs border border-red-100 flex items-start animate-fade-in">
-            <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+          <div className="bg-red-50 text-red-600 p-4 rounded-2xl mb-6 text-xs border border-red-100 flex items-start animate-fade-in">
+            <AlertTriangle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleAuth} className="space-y-4">
-          
-          {mode !== 'login' && (
-            <div className="animate-fade-in">
-              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1 tracking-widest">Je Naam</label>
+        {/* --- Path 1: Initial Login Form --- */}
+        {mode === 'login' && (
+          <form onSubmit={handleAuth} className="space-y-5">
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5 ml-1 tracking-widest">E-mailadres</label>
+              <input
+                type="email"
+                required
+                placeholder="naam@voorbeeld.nl"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5 ml-1 tracking-widest">Wachtwoord</label>
+              <input
+                type="password"
+                required
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-sm"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-primary text-white py-4 px-4 rounded-2xl hover:bg-secondary transition-all font-bold shadow-lg shadow-primary/20 flex items-center justify-center disabled:opacity-70 mt-4 active:scale-95"
+            >
+              {loading ? "Inloggen..." : "Inloggen"} <ArrowRight className="w-4 h-4 ml-2" />
+            </button>
+          </form>
+        )}
+
+        {/* --- Path 2: Registration Selection --- */}
+        {mode === 'register_select' && (
+          <div className="space-y-4 animate-fade-in">
+            <button 
+              onClick={() => setMode('register_new')}
+              className="w-full p-5 bg-white border-2 border-gray-100 rounded-3xl hover:border-primary hover:bg-cyan-50/30 transition-all text-left flex items-center group"
+            >
+              <div className="bg-primary/10 p-3 rounded-2xl mr-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                <ShieldCheck size={28} />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-800">Ik ben de Beheerder</h3>
+                <p className="text-xs text-gray-400">Start een nieuw huishouden (Superuser)</p>
+              </div>
+            </button>
+            <button 
+              onClick={() => setMode('register_join')}
+              className="w-full p-5 bg-white border-2 border-gray-100 rounded-3xl hover:border-primary hover:bg-cyan-50/30 transition-all text-left flex items-center group"
+            >
+              <div className="bg-primary/10 p-3 rounded-2xl mr-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                <Users size={28} />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-800">Ik ben een Lid</h3>
+                <p className="text-xs text-gray-400">Sluit je aan bij een bestaand gezin (Subuser)</p>
+              </div>
+            </button>
+          </div>
+        )}
+
+        {/* --- Path 3: Registration Forms --- */}
+        {(mode === 'register_new' || mode === 'register_join') && (
+          <form onSubmit={handleAuth} className="space-y-4 animate-fade-in">
+            <div className="flex items-center gap-2 mb-2">
+              <button 
+                type="button" 
+                onClick={() => setMode('register_select')}
+                className="text-xs text-primary font-bold hover:underline flex items-center"
+              >
+                ← Terug naar keuze
+              </button>
+            </div>
+
+            {mode === 'register_join' && (
+              <div className="bg-cyan-50 p-4 rounded-2xl border border-primary/10 mb-2">
+                <label className="block text-[10px] font-bold text-primary uppercase mb-1.5 ml-1 tracking-widest flex items-center">
+                  <Key size={10} className="mr-1" /> Gezins Code
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="CODE VAN PARTNER"
+                  value={familyCode}
+                  onChange={(e) => setFamilyCode(e.target.value)}
+                  className="w-full p-3 bg-white border border-primary/20 rounded-xl focus:ring-2 focus:ring-primary/20 transition-all outline-none font-mono text-xs uppercase text-center"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5 ml-1 tracking-widest">Naam</label>
               <input
                 type="text"
                 required
-                placeholder="Voor- en achternaam"
+                placeholder="Voornaam"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-sm"
+                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-primary/20 transition-all outline-none text-sm"
               />
             </div>
-          )}
-
-          {mode === 'register_join' && (
-            <div className="animate-fade-in">
-              <label className="block text-[10px] font-bold text-primary uppercase mb-1 ml-1 tracking-widest">Gezins Code</label>
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5 ml-1 tracking-widest">E-mail</label>
               <input
-                type="text"
+                type="email"
                 required
-                placeholder="Plak de code van je partner"
-                value={familyCode}
-                onChange={(e) => setFamilyCode(e.target.value)}
-                className="w-full p-3 bg-cyan-50 border border-primary/20 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none font-mono text-xs uppercase text-center"
+                placeholder="naam@voorbeeld.nl"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-primary/20 transition-all outline-none text-sm"
               />
-              <p className="text-[9px] text-gray-400 mt-2 text-center">
-                De beheerder vindt deze code bij <strong>Gezinsleden</strong> in de app.
-              </p>
             </div>
-          )}
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5 ml-1 tracking-widest">Wachtwoord</label>
+              <input
+                type="password"
+                required
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-primary/20 transition-all outline-none text-sm"
+              />
+            </div>
 
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1 tracking-widest">E-mailadres</label>
-            <input
-              type="email"
-              required
-              placeholder="naam@voorbeeld.nl"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-sm"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1 tracking-widest">Wachtwoord</label>
-            <input
-              type="password"
-              required
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-sm"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-primary text-white py-3.5 px-4 rounded-xl hover:bg-secondary transition-all font-bold shadow-lg shadow-primary/20 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed mt-6 active:scale-95"
-          >
-            {loading ? (
-              <div className="flex items-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Verwerken...
-              </div>
-            ) : (
-              <>
-                {mode === 'login' ? 'Inloggen' : 
-                 mode === 'register_new' ? 'Start nieuw Huishouden' : 'Sluit je aan'}
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </>
-            )}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-primary text-white py-4 rounded-2xl hover:bg-secondary transition-all font-bold shadow-lg mt-4 flex justify-center items-center"
+            >
+              {loading ? "Verwerken..." : (mode === 'register_new' ? "Start Huishouden" : "Account aanmaken")}
+              {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
