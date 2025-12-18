@@ -20,15 +20,8 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const analyzeReceipt = async (base64Image: string, mimeType: string, availableCategories: string[]): Promise<ReceiptAnalysisResult> => {
-  // Use global config
-  const config = typeof __APP_CONFIG__ !== 'undefined' ? __APP_CONFIG__ : { VITE_GOOGLE_API_KEY: '' };
-  const apiKey = config.VITE_GOOGLE_API_KEY;
-  
-  if (!apiKey || apiKey === "undefined") {
-    throw new Error("API Key ontbreekt. Controleer je configuratie (VITE_GOOGLE_API_KEY of API_KEY).");
-  }
-
-  const ai = new GoogleGenAI({ apiKey: apiKey });
+  // Obtain the API key exclusively from the environment variable process.env.API_KEY
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const schema = {
     type: Type.OBJECT,
@@ -41,7 +34,7 @@ export const analyzeReceipt = async (base64Image: string, mimeType: string, avai
       },
       description: { type: Type.STRING, description: "Store name or short description." }
     },
-    required: ["amount", "date", "description"],
+    required: ["amount", "date", "category", "description"],
   };
 
   const maxRetries = 3;
@@ -49,8 +42,9 @@ export const analyzeReceipt = async (base64Image: string, mimeType: string, avai
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      // Use gemini-3-flash-preview for multimodal content analysis as per guidelines
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3-flash-preview",
         contents: {
           parts: [
             {
@@ -79,9 +73,11 @@ export const analyzeReceipt = async (base64Image: string, mimeType: string, avai
         }
       });
 
+      // Directly access .text property from GenerateContentResponse
       let text = response.text;
       if (!text) throw new Error("AI returned empty response.");
 
+      // Clean markdown if present (though responseMimeType: "application/json" should return pure JSON)
       text = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
       try {
@@ -102,21 +98,18 @@ export const analyzeReceipt = async (base64Image: string, mimeType: string, avai
       console.warn(`Attempt ${attempt} failed:`, error.message);
       lastError = error;
 
-      // Check if it's a 503 Service Unavailable or Overloaded error
+      // Handle service availability or overloading errors with exponential backoff
       const isOverloaded = error.status === 503 || 
                            (error.message && error.message.includes('503')) || 
                            (error.message && error.message.toLowerCase().includes('overloaded'));
 
-      // If overloaded and we have retries left, wait and continue
       if (isOverloaded && attempt < maxRetries) {
-        // Exponential backoff: wait 2s, then 4s, etc.
         const waitTime = 2000 * attempt;
         console.log(`Google Gemini is busy. Retrying in ${waitTime}ms...`);
         await delay(waitTime);
         continue;
       }
 
-      // If not overloaded or out of retries, throw the error
       throw new Error(error.message || "Er is een fout opgetreden bij het analyseren.");
     }
   }
