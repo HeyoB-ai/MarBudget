@@ -36,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) fetchUserData(session.user.id);
+      if (session?.user) fetchUserData(session.user);
       else setLoading(false);
     });
 
@@ -47,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserData(session.user.id);
+        fetchUserData(session.user);
       } else {
         setProfile(null);
         setTenant(null);
@@ -59,22 +59,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserData = async (userId: string) => {
+  const fetchUserData = async (currentUser: User) => {
     try {
+      const userId = currentUser.id;
+      
       // 1. Get Profile
-      const { data: profileData } = await supabase
+      let { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
+
+      // Als profiel ontbreekt, maken we het aan (bijv. na email bevestiging)
+      if (!profileData && currentUser.user_metadata?.full_name) {
+        const { data: newProfile } = await supabase.from('profiles').insert({
+          id: userId,
+          email: currentUser.email,
+          full_name: currentUser.user_metadata.full_name
+        }).select().single();
+        profileData = newProfile;
+      }
       setProfile(profileData);
 
       // 2. Get Member Role & Tenant ID
-      const { data: memberData } = await supabase
+      let { data: memberData } = await supabase
         .from('tenant_members')
         .select('role, tenant_id')
         .eq('user_id', userId)
         .maybeSingle();
+
+      // AUTO-SETUP ALS LID VAN TENANT ONTBREEKT
+      if (!memberData && currentUser.user_metadata?.pending_role) {
+        const pendingRole = currentUser.user_metadata.pending_role;
+        const pendingCode = currentUser.user_metadata.pending_family_code;
+
+        if (pendingRole === 'master_admin') {
+          // Maak nieuw huishouden
+          const { data: newTenant } = await supabase.from('tenants').insert({
+            name: `Gezin ${currentUser.user_metadata.full_name.split(' ')[0]}`,
+            subscription_tier: 'S',
+            max_users: 5
+          }).select().single();
+
+          if (newTenant) {
+            const { data: newMember } = await supabase.from('tenant_members').insert({
+              tenant_id: newTenant.id,
+              user_id: userId,
+              role: 'master_admin'
+            }).select().single();
+            memberData = newMember;
+          }
+        } else if (pendingRole === 'sub_user' && pendingCode) {
+          // Sluit aan bij bestaand huishouden
+          const { data: targetTenant } = await supabase.from('tenants').select('id').eq('id', pendingCode).maybeSingle();
+          if (targetTenant) {
+            const { data: newMember } = await supabase.from('tenant_members').insert({
+              tenant_id: targetTenant.id,
+              user_id: userId,
+              role: 'sub_user'
+            }).select().single();
+            memberData = newMember;
+          }
+        }
+      }
 
       if (memberData) {
         setRole(memberData.role as UserRole);

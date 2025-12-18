@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, CheckCircle } from 'lucide-react';
+import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, CheckCircle, Mail } from 'lucide-react';
 
 export const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -9,9 +9,7 @@ export const Auth = () => {
   const [fullName, setFullName] = useState('');
   const [familyCode, setFamilyCode] = useState('');
   
-  // Standen: login, register_select, register_new, register_join
   const [mode, setMode] = useState<'login' | 'register_select' | 'register_new' | 'register_join'>('login');
-  
   const [error, setError] = useState<{message: string, code?: string} | null>(null);
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(true);
@@ -34,75 +32,54 @@ export const Auth = () => {
 
     try {
       if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+        if (loginError) throw loginError;
       } else {
         // --- REGISTRATIE FLOW ---
-        // CRITICAL FIX: We voegen 'emailRedirectTo' toe zodat de bevestigingslink 
-        // in de e-mail terugstuurt naar de huidige URL in plaats van localhost.
+        
+        // We slaan de gewenste rol en code op in user_metadata. 
+        // Dit zorgt ervoor dat we de setup kunnen voltooien NA de email-bevestiging.
+        const signupOptions = { 
+          data: { 
+            full_name: fullName,
+            pending_role: mode === 'register_new' ? 'master_admin' : 'sub_user',
+            pending_family_code: mode === 'register_join' ? familyCode : null
+          },
+          // Gebruik window.location.origin om terug te keren naar de app ipv localhost
+          emailRedirectTo: window.location.origin
+        };
+
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
           password,
-          options: { 
-            data: { full_name: fullName },
-            emailRedirectTo: window.location.origin // Dit lost de localhost-fout op
-          },
+          options: signupOptions,
         });
 
-        if (authError) throw authError;
+        if (authError) {
+          // Als de fout 429 is, is er te vaak geprobeerd
+          if (authError.status === 429) {
+            throw new Error("Te veel pogingen. Wacht even voordat je het opnieuw probeert.");
+          }
+          throw authError;
+        }
         
-        // Als er geen sessie is, moet de gebruiker e-mail bevestigen
+        // Als Supabase aangeeft dat de email is verstuurd
         if (authData.user && !authData.session) {
-          setSuccessInfo("Registratie gelukt! We hebben een bevestigingsmail gestuurd naar " + email + ". Klik op de link in die mail om je account te activeren.");
+          setSuccessInfo("Registratie gelukt! We hebben een bevestigingsmail gestuurd. Check ook je spam-folder als je niets ziet.");
           setLoading(false);
           return;
         }
 
-        if (!authData.user) throw new Error("Registratie mislukt. Probeer het later opnieuw.");
-
-        const userId = authData.user.id;
-
-        // Metadata wegschrijven (alleen als de sessie direct actief is, anders gebeurt dit bij de eerste login)
+        // Als email-bevestiging uit staat in Supabase, gaat hij direct door:
         if (authData.session) {
-          await supabase.from('profiles').upsert({
-            id: userId, email, full_name: fullName
-          });
-
-          if (mode === 'register_new') {
-            const { data: tData, error: tError } = await supabase.from('tenants').insert({
-              name: `Gezin ${fullName.split(' ')[0]}`,
-              subscription_tier: 'S',
-              max_users: 5
-            }).select().single();
-            
-            if (tError) throw tError;
-
-            await supabase.from('tenant_members').insert({
-              tenant_id: tData.id,
-              user_id: userId,
-              role: 'master_admin'
-            });
-          } else if (mode === 'register_join') {
-            if (!familyCode) throw new Error("Voer een geldige Gezins Code in.");
-            
-            const { data: tenant, error: fError } = await supabase.from('tenants')
-              .select('id').eq('id', familyCode.trim()).maybeSingle();
-
-            if (fError || !tenant) throw new Error("Gezins Code niet gevonden. Controleer de code.");
-
-            await supabase.from('tenant_members').insert({
-              tenant_id: tenant.id,
-              user_id: userId,
-              role: 'sub_user'
-            });
-          }
+          window.location.reload(); // Herlaad om de AuthContext de nieuwe sessie te laten oppakken
         }
       }
     } catch (err: any) {
-      console.error("Auth error details:", err);
+      console.error("Auth error:", err);
       setError({ 
-        message: err.message || "Er is een onbekende fout opgetreden.",
-        code: err.code || err.status 
+        message: err.message || "Er is iets misgegaan bij het verbinden met de server.",
+        code: err.status || err.code 
       });
     } finally {
       setLoading(false);
@@ -123,7 +100,7 @@ export const Auth = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 font-sans">
-      <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md animate-fade-in relative overflow-hidden">
+      <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md animate-fade-in relative overflow-hidden border border-gray-100">
         
         {/* Header Section */}
         <div className="flex flex-col items-center mb-10">
@@ -136,33 +113,34 @@ export const Auth = () => {
 
         {/* Status Meldingen */}
         {error && (
-          <div className="bg-red-50 text-red-600 p-5 rounded-2xl mb-8 text-xs border border-red-100 animate-fade-in">
-            <div className="flex items-start">
-              <AlertTriangle className="w-4 h-4 mr-3 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold mb-0.5">Fout {error.code && `(${error.code})`}</p>
-                <p>{error.message}</p>
-              </div>
+          <div className="bg-red-50 text-red-600 p-5 rounded-2xl mb-8 text-xs border border-red-100 animate-fade-in flex items-start">
+            <AlertTriangle className="w-4 h-4 mr-3 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold mb-0.5">Oeps!</p>
+              <p>{error.message}</p>
             </div>
           </div>
         )}
 
-        {successInfo && (
-          <div className="bg-green-50 text-green-700 p-6 rounded-[2rem] mb-8 text-sm border border-green-100 animate-fade-in flex flex-col items-center text-center">
-            <CheckCircle className="w-10 h-10 mb-4 text-green-500" />
-            <h3 className="font-bold text-lg mb-2">Check je e-mail!</h3>
-            <p className="leading-relaxed opacity-90">{successInfo}</p>
-          </div>
-        )}
-
-        {/* Registratie Gelukt Flow: Alleen terug knop tonen */}
         {successInfo ? (
-          <div className="flex flex-col items-center">
-             <button 
+          <div className="animate-fade-in text-center py-4">
+            <div className="bg-green-50 text-green-700 p-8 rounded-[2.5rem] mb-8 border border-green-100 flex flex-col items-center">
+              <div className="bg-green-500 text-white p-3 rounded-full mb-4 shadow-lg shadow-green-200">
+                <Mail size={24} />
+              </div>
+              <h3 className="font-bold text-xl mb-3 text-green-800 tracking-tight">Check je e-mail!</h3>
+              <p className="text-sm leading-relaxed text-green-700/80 mb-6">{successInfo}</p>
+              
+              <div className="bg-white/50 p-4 rounded-2xl text-[10px] text-green-600 font-medium uppercase tracking-wider">
+                Tip: Geen mail? Check je ongewenste post.
+              </div>
+            </div>
+            
+            <button 
               onClick={() => { setSuccessInfo(null); setMode('login'); }}
-              className="mt-4 bg-gray-100 text-gray-600 px-6 py-3 rounded-2xl font-bold flex items-center hover:bg-gray-200 transition-all text-sm"
+              className="bg-gray-100 text-gray-600 px-8 py-4 rounded-2xl font-bold flex items-center hover:bg-gray-200 transition-all text-sm mx-auto shadow-sm active:scale-95"
             >
-              <ChevronLeft size={16} className="mr-1" /> Terug naar Inloggen
+              <ChevronLeft size={18} className="mr-2" /> Terug naar Inloggen
             </button>
           </div>
         ) : (
@@ -171,13 +149,13 @@ export const Auth = () => {
             {(mode === 'login' || mode === 'register_select') && (
               <div className="flex bg-gray-100 p-1.5 rounded-2xl mb-10">
                 <button 
-                  onClick={() => setMode('login')}
+                  onClick={() => { setMode('login'); setError(null); }}
                   className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode === 'login' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   Inloggen
                 </button>
                 <button 
-                  onClick={() => setMode('register_select')}
+                  onClick={() => { setMode('register_select'); setError(null); }}
                   className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode === 'register_select' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   Registreren
