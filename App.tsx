@@ -5,8 +5,7 @@ import { BudgetSettings } from './components/BudgetSettings';
 import { Expense } from './types';
 import { INITIAL_BUDGETS } from './constants';
 import { postToGoogleSheet } from './services/sheetService';
-// Added ShieldCheck to the list of imports from lucide-react to fix the reference error on line 274
-import { Wallet, Settings, List, Trash2, ChevronLeft, ChevronRight, LogOut, Users, Loader2, ShieldCheck } from 'lucide-react';
+import { Wallet, Settings, List, Trash2, ChevronLeft, ChevronRight, LogOut, Users, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Auth } from './components/Auth';
 import { LegacySync } from './components/LegacySync';
@@ -271,11 +270,18 @@ const AppContent = () => {
   if (!tenant) {
     return (
        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-8 text-center space-y-6">
-         <div className="bg-white p-10 rounded-[2.5rem] shadow-xl max-w-sm">
-           <div className="bg-amber-50 text-amber-500 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-6"><ShieldCheck size={32} /></div>
-           <h2 className="text-xl font-extrabold text-gray-800 mb-2">Huishouden Zoeken...</h2>
-           <p className="text-gray-500 text-sm mb-6 leading-relaxed">Je bent ingelogd, maar we koppelen nu je profiel aan je huishouden. Een moment geduld.</p>
-           <button onClick={() => window.location.reload()} className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-lg shadow-primary/20">Pagina Vernieuwen</button>
+         <div className="bg-white p-12 rounded-[3rem] shadow-2xl max-w-md">
+           <div className="bg-cyan-50 text-primary w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-inner"><AlertCircle size={40} /></div>
+           <h2 className="text-2xl font-extrabold text-gray-800 mb-4 tracking-tight">Geen huishouden gevonden</h2>
+           <p className="text-gray-500 text-sm mb-8 leading-relaxed">
+             Je bent ingelogd, maar je bent nog niet gekoppeld aan een huishouden. 
+             <br/><br/>
+             Mogelijk zijn de database tabellen nog niet aangemaakt in Supabase (404/401 fouten).
+           </p>
+           <button onClick={() => window.location.reload()} className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">
+             Probeer Opnieuw
+           </button>
+           <button onClick={() => supabase.auth.signOut()} className="mt-4 text-xs text-gray-400 hover:text-red-500 transition-colors">Log Uit</button>
          </div>
        </div>
     );
