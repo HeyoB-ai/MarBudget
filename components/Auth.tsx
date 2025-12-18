@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, CheckCircle, Mail } from 'lucide-react';
+import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, CheckCircle, Mail, Loader2, RefreshCw } from 'lucide-react';
 
 export const Auth = () => {
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -36,17 +37,13 @@ export const Auth = () => {
         if (loginError) throw loginError;
       } else {
         // --- REGISTRATIE FLOW ---
-        
-        // We slaan de gewenste rol en code op in user_metadata. 
-        // Dit zorgt ervoor dat we de setup kunnen voltooien NA de email-bevestiging.
         const signupOptions = { 
           data: { 
             full_name: fullName,
             pending_role: mode === 'register_new' ? 'master_admin' : 'sub_user',
             pending_family_code: mode === 'register_join' ? familyCode : null
           },
-          // Gebruik window.location.origin om terug te keren naar de app ipv localhost
-          emailRedirectTo: window.location.origin
+          emailRedirectTo: window.location.origin 
         };
 
         const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -56,23 +53,20 @@ export const Auth = () => {
         });
 
         if (authError) {
-          // Als de fout 429 is, is er te vaak geprobeerd
           if (authError.status === 429) {
-            throw new Error("Te veel pogingen. Wacht even voordat je het opnieuw probeert.");
+            throw new Error("Supabase stuurt niet vaker dan één keer per minuut een mail naar hetzelfde adres. Wacht even of check je spam.");
           }
           throw authError;
         }
         
-        // Als Supabase aangeeft dat de email is verstuurd
         if (authData.user && !authData.session) {
-          setSuccessInfo("Registratie gelukt! We hebben een bevestigingsmail gestuurd. Check ook je spam-folder als je niets ziet.");
+          setSuccessInfo(`We hebben een bevestigingsmail gestuurd naar ${email}. Klik op de link in de mail om door te gaan.`);
           setLoading(false);
           return;
         }
 
-        // Als email-bevestiging uit staat in Supabase, gaat hij direct door:
         if (authData.session) {
-          window.location.reload(); // Herlaad om de AuthContext de nieuwe sessie te laten oppakken
+          window.location.reload(); 
         }
       }
     } catch (err: any) {
@@ -86,13 +80,40 @@ export const Auth = () => {
     }
   };
 
+  const handleResendEmail = async () => {
+    if (!email) return;
+    setResending(true);
+    setError(null);
+    
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: window.location.origin
+        }
+      });
+
+      if (resendError) throw resendError;
+      
+      alert("Nieuwe mail is verstuurd! Check je inbox.");
+    } catch (err: any) {
+      setError({ 
+        message: err.message || "Kon de mail niet opnieuw versturen. Wacht een minuutje.",
+        code: err.status 
+      });
+    } finally {
+      setResending(false);
+    }
+  };
+
   if (!isConfigured) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md text-center">
           <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
           <h1 className="text-xl font-bold mb-2">Configuratie Fout</h1>
-          <p className="text-gray-500 text-sm">De verbinding met Supabase is niet ingesteld.</p>
+          <p className="text-gray-500 text-sm">Geen verbinding met de database.</p>
         </div>
       </div>
     );
@@ -124,16 +145,21 @@ export const Auth = () => {
 
         {successInfo ? (
           <div className="animate-fade-in text-center py-4">
-            <div className="bg-green-50 text-green-700 p-8 rounded-[2.5rem] mb-8 border border-green-100 flex flex-col items-center">
+            <div className="bg-green-50 text-green-700 p-8 rounded-[2.5rem] mb-6 border border-green-100 flex flex-col items-center">
               <div className="bg-green-500 text-white p-3 rounded-full mb-4 shadow-lg shadow-green-200">
                 <Mail size={24} />
               </div>
               <h3 className="font-bold text-xl mb-3 text-green-800 tracking-tight">Check je e-mail!</h3>
               <p className="text-sm leading-relaxed text-green-700/80 mb-6">{successInfo}</p>
               
-              <div className="bg-white/50 p-4 rounded-2xl text-[10px] text-green-600 font-medium uppercase tracking-wider">
-                Tip: Geen mail? Check je ongewenste post.
-              </div>
+              <button 
+                onClick={handleResendEmail}
+                disabled={resending}
+                className="text-[11px] bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-full font-bold uppercase tracking-wider transition-all flex items-center"
+              >
+                {resending ? <Loader2 size={14} className="animate-spin mr-2" /> : <RefreshCw size={14} className="mr-2" />}
+                Nog geen mail? Stuur opnieuw
+              </button>
             </div>
             
             <button 
@@ -193,7 +219,8 @@ export const Auth = () => {
                   disabled={loading}
                   className="w-full bg-primary text-white py-4 px-4 rounded-2xl hover:bg-secondary transition-all font-bold shadow-lg shadow-primary/20 flex items-center justify-center disabled:opacity-70 mt-4 active:scale-95"
                 >
-                  {loading ? "Inloggen..." : "Inloggen"} <ArrowRight className="w-4 h-4 ml-2" />
+                  {loading ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : null}
+                  {loading ? "Inloggen..." : "Inloggen"} {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
                 </button>
               </form>
             )}
@@ -205,7 +232,7 @@ export const Auth = () => {
                   onClick={() => setMode('register_new')}
                   className="w-full p-6 bg-white border-2 border-gray-100 rounded-3xl hover:border-primary hover:bg-cyan-50/30 transition-all text-left flex items-center group"
                 >
-                  <div className="bg-primary/10 p-3 rounded-2xl mr-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                  <div className="bg-primary/10 p-3 rounded-2xl mr-4 group-hover:bg-primary group-hover:text-white transition-colors text-primary">
                     <ShieldCheck size={32} />
                   </div>
                   <div>
@@ -217,7 +244,7 @@ export const Auth = () => {
                   onClick={() => setMode('register_join')}
                   className="w-full p-6 bg-white border-2 border-gray-100 rounded-3xl hover:border-primary hover:bg-cyan-50/30 transition-all text-left flex items-center group"
                 >
-                  <div className="bg-primary/10 p-3 rounded-2xl mr-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                  <div className="bg-primary/10 p-3 rounded-2xl mr-4 group-hover:bg-primary group-hover:text-white transition-colors text-primary">
                     <Users size={32} />
                   </div>
                   <div>
@@ -272,7 +299,8 @@ export const Auth = () => {
                   </div>
                 </div>
 
-                <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl hover:bg-secondary transition-all font-bold shadow-lg mt-4 flex justify-center items-center active:scale-95">
+                <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl hover:bg-secondary transition-all font-bold shadow-lg mt-4 flex justify-center items-center active:scale-95 disabled:opacity-70">
+                  {loading ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : null}
                   {loading ? "Verwerken..." : (mode === 'register_new' ? "Start als Beheerder" : "Start als Lid")}
                   {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
                 </button>
