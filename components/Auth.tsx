@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, CheckCircle, Mail, Loader2, RefreshCw, Info, ExternalLink, Settings2, HelpCircle, Bug, Trash2, AlertCircle, Clock, Check } from 'lucide-react';
+import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, Mail, Loader2, RefreshCw, HelpCircle, Clock, Check, RotateCcw } from 'lucide-react';
 
 export const Auth = () => {
   const [loading, setLoading] = useState(false);
@@ -11,32 +11,21 @@ export const Auth = () => {
   const [familyCode, setFamilyCode] = useState('');
   
   const [mode, setMode] = useState<'login' | 'register_select' | 'register_new' | 'register_join'>('login');
-  const [error, setError] = useState<{message: string, code?: string} | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(true);
-  const [showRedirectHelp, setShowRedirectHelp] = useState(false);
   const [rateLimitSeconds, setRateLimitSeconds] = useState<number>(0);
 
   const currentUrl = window.location.origin + window.location.pathname;
   const cleanUrl = currentUrl.replace(/\/$/, "");
 
-  // Automatische check of de gebruiker inmiddels bevestigd heeft
-  useEffect(() => {
-    if (successInfo) {
-      const interval = setInterval(async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          window.location.reload();
-        }
-      }, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [successInfo]);
-
+  // Timer voor de beveiligingspauze
   useEffect(() => {
     if (rateLimitSeconds > 0) {
-      const timer = setTimeout(() => setRateLimitSeconds(rateLimitSeconds - 1), 1000);
-      return () => clearTimeout(timer);
+      const timer = setInterval(() => {
+        setRateLimitSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+      return () => clearInterval(timer);
     }
   }, [rateLimitSeconds]);
 
@@ -48,45 +37,38 @@ export const Auth = () => {
     }
   }, []);
 
-  const parseAuthError = (err: any) => {
+  const handleAuthError = (err: any) => {
     const msg = err.message || "";
-    if (msg.includes("after")) {
-      const seconds = parseInt(msg.match(/\d+/)?.[0] || "30");
-      setRateLimitSeconds(seconds);
-      return `Te snel geklikt! Wacht ${seconds} seconden voor je weer een mail aanvraagt.`;
+    // Zoek naar getallen in de foutmelding (bijv. "14 seconds")
+    const match = msg.match(/\d+/);
+    if (match && (msg.includes("security") || msg.includes("limit") || msg.includes("after"))) {
+      setRateLimitSeconds(parseInt(match[0]));
+      return `Te veel pogingen. Wacht ${match[0]} seconden.`;
     }
-    if (msg.includes("Invalid login credentials")) return "E-mail of wachtwoord is onjuist.";
-    if (msg.includes("User already registered")) return "Dit e-mailadres is al in gebruik.";
-    if (msg.includes("Email not confirmed")) return "Je e-mail is nog niet bevestigd. Check je inbox!";
-    return msg;
+    if (msg.includes("Invalid login credentials")) return "E-mail of wachtwoord klopt niet.";
+    if (msg.includes("Email not confirmed")) return "E-mail is nog niet bevestigd. Klik op de link in je mail!";
+    if (msg.includes("already registered")) return "Dit account bestaat al. Probeer in te loggen.";
+    return "Er ging iets mis. Probeer het opnieuw.";
   };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isConfigured) return;
+    if (!isConfigured || rateLimitSeconds > 0) return;
     
     setLoading(true);
     setError(null);
 
-    const emailTrimmed = email.trim().toLowerCase();
-
     try {
       if (mode === 'login') {
         const { error: loginError } = await supabase.auth.signInWithPassword({ 
-          email: emailTrimmed, 
+          email: email.trim().toLowerCase(), 
           password 
         });
-        if (loginError) {
-          if (loginError.message.toLowerCase().includes('confirm')) {
-             setSuccessInfo(`Bevestig eerst je e-mail voor ${emailTrimmed}.`);
-             setLoading(false);
-             return;
-          }
-          throw loginError;
-        }
+        if (loginError) throw loginError;
+        window.location.reload();
       } else {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: emailTrimmed,
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: email.trim().toLowerCase(),
           password,
           options: { 
             data: { 
@@ -98,43 +80,45 @@ export const Auth = () => {
           },
         });
 
-        if (authError) throw authError;
+        if (signUpError) throw signUpError;
         
-        if (authData.user && !authData.session) {
-          setSuccessInfo(`Mail verstuurd naar ${emailTrimmed}.`);
-          setLoading(false);
-          return;
+        if (data.user && !data.session) {
+          setSuccessInfo("Bevestigingsmail verstuurd!");
+        } else if (data.session) {
+          window.location.reload();
         }
-
-        if (authData.session) window.location.reload(); 
       }
     } catch (err: any) {
-      setError({ message: parseAuthError(err), code: err.status });
+      setError(handleAuthError(err));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResendEmail = async () => {
+  const handleResend = async () => {
     if (rateLimitSeconds > 0) return;
-    const emailTrimmed = email.trim().toLowerCase();
-    if (!emailTrimmed) return;
     setResending(true);
     setError(null);
-    
     try {
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
-        email: emailTrimmed,
+        email: email.trim().toLowerCase(),
         options: { emailRedirectTo: cleanUrl }
       });
       if (resendError) throw resendError;
-      alert(`Nieuwe mail gestuurd!`);
+      alert("Nieuwe mail is onderweg!");
     } catch (err: any) {
-      setError({ message: parseAuthError(err) });
+      setError(handleAuthError(err));
     } finally {
       setResending(false);
     }
+  };
+
+  const resetAll = () => {
+    setError(null);
+    setSuccessInfo(null);
+    setMode('login');
+    setLoading(false);
   };
 
   if (!isConfigured) {
@@ -142,8 +126,8 @@ export const Auth = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-center font-sans">
         <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md border border-red-100">
           <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold mb-2 tracking-tight">Geen verbinding</h1>
-          <p className="text-gray-500 text-sm">Supabase omgevingsvariabelen ontbreken.</p>
+          <h1 className="text-xl font-bold mb-2">Supabase Fout</h1>
+          <p className="text-gray-500 text-sm">Controleer de API instellingen.</p>
         </div>
       </div>
     );
@@ -151,165 +135,75 @@ export const Auth = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 font-sans">
-      <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md animate-fade-in relative border border-gray-100 overflow-hidden">
+      <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md animate-fade-in border border-gray-100 relative">
         
-        <div className="flex flex-col items-center mb-10">
-          <div className="bg-primary text-white p-4 rounded-2xl shadow-lg mb-6 transform -rotate-2">
-            <Wallet size={36} />
+        <div className="flex flex-col items-center mb-8">
+          <div className="bg-primary text-white p-4 rounded-2xl shadow-lg mb-4">
+            <Wallet size={32} />
           </div>
-          <h1 className="text-3xl font-extrabold text-gray-800 mb-1 tracking-tight">MarBudget</h1>
-          <p className="text-gray-400 text-sm font-medium">Financieel overzicht, simpel gemaakt.</p>
+          <h1 className="text-2xl font-black text-gray-800 tracking-tight">MarBudget</h1>
         </div>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-2xl mb-6 text-xs border border-red-100 flex items-start animate-shake">
-            <AlertTriangle className="w-4 h-4 mr-3 flex-shrink-0 mt-0.5" />
-            <p className="font-medium">{error.message}</p>
+          <div className="bg-red-50 text-red-600 p-4 rounded-2xl mb-6 text-xs border border-red-100 flex items-center animate-shake">
+            <AlertTriangle className="w-4 h-4 mr-3 flex-shrink-0" />
+            <p className="font-bold">{error}</p>
           </div>
         )}
 
         {successInfo ? (
-          <div className="animate-fade-in space-y-6">
-            <div className="bg-cyan-50 text-primary p-8 rounded-[2.5rem] border border-cyan-100 flex flex-col items-center text-center">
-              <div className="bg-primary text-white p-3 rounded-full mb-4 shadow-lg">
-                <Mail size={24} />
-              </div>
-              <h3 className="font-bold text-xl mb-3 text-primary tracking-tight">Bijna klaar!</h3>
-              <p className="text-sm leading-relaxed mb-6 opacity-80">
-                Klik op de link in de mail die we naar <b>{email}</b> hebben gestuurd.
-              </p>
+          <div className="text-center space-y-6 animate-fade-in">
+            <div className="bg-cyan-50 p-8 rounded-[2rem] border border-cyan-100">
+              <Mail className="w-12 h-12 text-primary mx-auto mb-4" />
+              <h3 className="font-bold text-lg mb-2">Check je inbox</h3>
+              <p className="text-sm text-gray-500 mb-6">We hebben een mail gestuurd naar <b>{email}</b>.</p>
               
-              <div className="space-y-3 w-full">
-                <button 
-                  onClick={async () => {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (session) window.location.reload();
-                    else {
-                      setSuccessInfo(null);
-                      setMode('login');
-                    }
-                  }}
-                  className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm shadow-lg flex items-center justify-center hover:bg-secondary transition-all active:scale-95"
-                >
-                  <Check size={18} className="mr-2" /> Ik heb bevestigd, laat me erin!
-                </button>
+              <button 
+                onClick={handleResend}
+                disabled={resending || rateLimitSeconds > 0}
+                className="w-full bg-white text-primary border border-primary/20 py-3 rounded-xl text-xs font-bold flex items-center justify-center mb-3 hover:bg-cyan-100 transition-all disabled:opacity-50"
+              >
+                {rateLimitSeconds > 0 ? <Clock size={14} className="mr-2" /> : <RefreshCw size={14} className="mr-2" />}
+                {rateLimitSeconds > 0 ? `Wacht ${rateLimitSeconds}s...` : "Stuur opnieuw"}
+              </button>
 
-                <button 
-                  onClick={handleResendEmail}
-                  disabled={resending || rateLimitSeconds > 0}
-                  className={`w-full py-3 rounded-2xl font-bold text-xs flex items-center justify-center transition-all ${
-                    rateLimitSeconds > 0 
-                    ? 'text-gray-400' 
-                    : 'text-primary/60 hover:text-primary'
-                  }`}
-                >
-                  {resending ? <Loader2 size={14} className="animate-spin mr-2" /> : (rateLimitSeconds > 0 ? <Clock size={14} className="mr-2" /> : <RefreshCw size={14} className="mr-2" />)}
-                  {rateLimitSeconds > 0 ? `Wacht ${rateLimitSeconds}s voor nieuwe mail` : "Mail niet gehad? Stuur opnieuw"}
-                </button>
-
-                <button 
-                  onClick={() => setShowRedirectHelp(!showRedirectHelp)}
-                  className="w-full text-[10px] text-gray-400 font-bold uppercase tracking-widest py-2"
-                >
-                  Help? Klik hier
-                </button>
-
-                {showRedirectHelp && (
-                  <div className="bg-white p-5 rounded-2xl text-left border border-cyan-200 shadow-inner mt-2 animate-fade-in">
-                    <p className="text-[10px] text-gray-600 leading-relaxed mb-3 italic">
-                      "Ik kom op localhost terecht": Verander in Supabase Dashboard je <b>Site URL</b> naar:
-                    </p>
-                    <code className="bg-gray-100 p-2 rounded font-mono text-primary text-[9px] block mb-2 break-all">{cleanUrl}</code>
-                    <p className="text-[10px] text-gray-400 uppercase font-bold">Vergeet niet op Save te drukken!</p>
-                  </div>
-                )}
-              </div>
+              <button 
+                onClick={resetAll}
+                className="text-[10px] text-gray-400 font-bold uppercase tracking-widest hover:text-primary transition-colors flex items-center justify-center mx-auto"
+              >
+                <RotateCcw size={10} className="mr-1" /> Toch inloggen?
+              </button>
             </div>
-            
-            <button 
-              onClick={() => { setSuccessInfo(null); setMode('login'); setError(null); }}
-              className="w-full text-gray-400 py-2 font-bold text-xs uppercase tracking-widest hover:text-gray-600 transition-colors"
-            >
-              Terug naar inloggen
-            </button>
           </div>
         ) : (
           <>
-            {(mode === 'login' || mode === 'register_select') && (
-              <div className="flex bg-gray-100 p-1.5 rounded-2xl mb-10">
-                <button onClick={() => { setMode('login'); setError(null); }}
-                  className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode === 'login' ? 'bg-white text-primary shadow-md' : 'text-gray-500'}`}
-                >Inloggen</button>
-                <button onClick={() => { setMode('register_select'); setError(null); }}
-                  className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode === 'register_select' ? 'bg-white text-primary shadow-md' : 'text-gray-500'}`}
-                >Registreren</button>
-              </div>
-            )}
+            <div className="flex bg-gray-100 p-1.5 rounded-2xl mb-8">
+              <button onClick={() => { setMode('login'); setError(null); }} className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode === 'login' ? 'bg-white text-primary shadow-md' : 'text-gray-400'}`}>Inloggen</button>
+              <button onClick={() => { setMode('register_select'); setError(null); }} className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode.startsWith('register') ? 'bg-white text-primary shadow-md' : 'text-gray-400'}`}>Registreren</button>
+            </div>
 
-            {mode === 'login' && (
-              <form onSubmit={handleAuth} className="space-y-6">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2 ml-1 tracking-widest">E-mail</label>
-                  <input type="email" required placeholder="naam@voorbeeld.nl" value={email} onChange={(e) => setEmail(e.target.value)}
-                    className="w-full p-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all outline-none text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2 ml-1 tracking-widest">Wachtwoord</label>
-                  <input type="password" required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)}
-                    className="w-full p-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all outline-none text-sm"
-                  />
-                </div>
-                <button type="submit" disabled={loading}
-                  className="w-full bg-primary text-white py-4 rounded-2xl hover:bg-secondary transition-all font-bold shadow-lg flex items-center justify-center disabled:opacity-70 active:scale-95"
-                >
-                  {loading ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : "Inloggen"}
-                  {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
+            {mode === 'login' ? (
+              <form onSubmit={handleAuth} className="space-y-4">
+                <input type="email" required placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
+                <input type="password" required placeholder="Wachtwoord" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
+                <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-secondary transition-all flex justify-center items-center active:scale-95 disabled:opacity-70">
+                  {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <>Inloggen <ArrowRight className="ml-2 w-4 h-4" /></>}
                 </button>
               </form>
-            )}
-
-            {mode === 'register_select' && (
-              <div className="space-y-4 animate-fade-in">
-                <button onClick={() => setMode('register_new')}
-                  className="w-full p-6 bg-white border-2 border-gray-100 rounded-3xl hover:border-primary hover:bg-cyan-50/30 transition-all text-left flex items-center group"
-                >
-                  <div className="bg-primary/10 p-3 rounded-2xl mr-4 group-hover:bg-primary group-hover:text-white transition-colors text-primary"><ShieldCheck size={32} /></div>
-                  <div><h3 className="font-bold text-gray-800">Beheerder</h3><p className="text-xs text-gray-400">Ik start een nieuw huishouden</p></div>
-                </button>
-                <button onClick={() => setMode('register_join')}
-                  className="w-full p-6 bg-white border-2 border-gray-100 rounded-3xl hover:border-primary hover:bg-cyan-50/30 transition-all text-left flex items-center group"
-                >
-                  <div className="bg-primary/10 p-3 rounded-2xl mr-4 group-hover:bg-primary group-hover:text-white transition-colors text-primary"><Users size={32} /></div>
-                  <div><h3 className="font-bold text-gray-800">Gezinslid</h3><p className="text-xs text-gray-400">Ik sluit me aan bij een ander</p></div>
-                </button>
+            ) : mode === 'register_select' ? (
+              <div className="space-y-3">
+                <button onClick={() => setMode('register_new')} className="w-full p-5 bg-white border border-gray-100 rounded-2xl hover:border-primary transition-all text-left flex items-center"><ShieldCheck className="text-primary mr-4" /> <div><div className="font-bold text-sm">Beheerder</div><div className="text-[10px] text-gray-400">Nieuw huishouden starten</div></div></button>
+                <button onClick={() => setMode('register_join')} className="w-full p-5 bg-white border border-gray-100 rounded-2xl hover:border-primary transition-all text-left flex items-center"><Users className="text-primary mr-4" /> <div><div className="font-bold text-sm">Gezinslid</div><div className="text-[10px] text-gray-400">Word lid van bestaand huishouden</div></div></button>
               </div>
-            )}
-
-            {(mode === 'register_new' || mode === 'register_join') && (
-              <form onSubmit={handleAuth} className="space-y-4 animate-fade-in">
-                <button type="button" onClick={() => setMode('register_select')} className="text-xs text-primary font-bold flex items-center mb-4"><ChevronLeft size={14} className="mr-1" /> Terug naar keuze</button>
-                {mode === 'register_join' && (
-                  <div className="bg-cyan-50 p-5 rounded-2xl border border-primary/10">
-                    <label className="block text-[10px] font-bold text-primary uppercase mb-2 tracking-widest flex items-center"><Key size={12} className="mr-1" /> Gezins Code</label>
-                    <input type="text" required placeholder="CODE VAN BEHEERDER" value={familyCode} onChange={(e) => setFamilyCode(e.target.value)}
-                      className="w-full p-3 bg-white border border-primary/20 rounded-xl focus:ring-2 focus:ring-primary/20 transition-all outline-none font-mono text-xs uppercase text-center"
-                    />
-                  </div>
-                )}
-                <div className="space-y-3">
-                  <input type="text" required placeholder="Je Naam" value={fullName} onChange={(e) => setFullName(e.target.value)}
-                    className="w-full p-3.5 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none text-sm"
-                  />
-                  <input type="email" required placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)}
-                    className="w-full p-3.5 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none text-sm"
-                  />
-                  <input type="password" required placeholder="Wachtwoord" value={password} onChange={(e) => setPassword(e.target.value)}
-                    className="w-full p-3.5 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-primary/20 outline-none text-sm"
-                  />
-                </div>
-                <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl hover:bg-secondary transition-all font-bold shadow-lg mt-4 flex justify-center items-center active:scale-95 disabled:opacity-70">
-                  {loading ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : (mode === 'register_new' ? "Account aanmaken" : "Word lid")}
+            ) : (
+              <form onSubmit={handleAuth} className="space-y-3 animate-fade-in">
+                <button type="button" onClick={() => setMode('register_select')} className="text-[10px] font-bold text-primary flex items-center mb-2 uppercase tracking-wider"><ChevronLeft size={12} /> Terug</button>
+                {mode === 'register_join' && <input type="text" required placeholder="Gezins Code" value={familyCode} onChange={(e) => setFamilyCode(e.target.value)} className="w-full p-4 bg-cyan-50 border border-primary/10 rounded-2xl font-mono text-xs text-center" />}
+                <input type="text" required placeholder="Je Naam" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm" />
+                <input type="email" required placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm" />
+                <input type="password" required placeholder="Wachtwoord" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm" />
+                <button type="submit" disabled={loading || rateLimitSeconds > 0} className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-lg mt-2 flex justify-center">
+                  {loading ? <Loader2 className="animate-spin w-5 h-5" /> : (rateLimitSeconds > 0 ? `Wacht ${rateLimitSeconds}s` : "Account maken")}
                 </button>
               </form>
             )}
