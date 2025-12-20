@@ -74,7 +74,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (profileError) {
         console.error("Profile Fetch Error:", profileError);
-        // Als de tabel niet bestaat, stoppen we hier en tonen de SQL fix
+        if (profileError.message.includes("500") || profileError.message.includes("Internal Server Error")) {
+          setDbError("De database herstart momenteel. Wacht even 10 seconden.");
+          setLoading(false);
+          return;
+        }
         if (profileError.message.includes("does not exist")) {
            setDbError("Database tabellen ontbreken nog.");
            setLoading(false);
@@ -94,7 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (insertError) {
           console.error("Profile Insert Error:", insertError);
-          setDbError("Kan profiel niet aanmaken. Voer eerst de SQL code uit.");
+          setDbError("Kan profiel nog niet opslaan. Is de SQL gerund?");
           setLoading(false);
           return;
         }
@@ -103,11 +107,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setProfile(currentProfile);
 
       // 3. Get Member Role & Tenant
-      let { data: memberData } = await supabase
+      let { data: memberData, error: memberError } = await supabase
         .from('tenant_members')
         .select('role, tenant_id')
         .eq('user_id', userId)
         .maybeSingle();
+
+      if (memberError && memberError.message.includes("500")) {
+        setDbError("De tabellen zijn nog niet actief in de API. Wacht even...");
+        setLoading(false);
+        return;
+      }
 
       // 4. Auto-setup Tenant if missing
       if (!memberData) {
@@ -130,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             memberData = newMember;
           } else if (tErr) {
             console.error("Tenant Error:", tErr);
-            setDbError("Fout bij aanmaken huishouden. Is de SQL correct uitgevoerd?");
+            setDbError("Fout bij aanmaken huishouden. Is de SQL correct?");
           }
         } else if (pendingRole === 'sub_user' && pendingCode) {
           const { data: targetTenant } = await supabase.from('tenants').select('id').eq('id', pendingCode).maybeSingle();
