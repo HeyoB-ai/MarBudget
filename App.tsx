@@ -5,7 +5,7 @@ import { BudgetSettings } from './components/BudgetSettings';
 import { Expense } from './types';
 import { INITIAL_BUDGETS } from './constants';
 import { postToGoogleSheet } from './services/sheetService';
-import { Wallet, Settings, List, Trash2, ChevronLeft, ChevronRight, LogOut, Users, Loader2, ShieldCheck, AlertCircle, Database, Terminal, Check, Copy, RefreshCcw } from 'lucide-react';
+import { Wallet, Settings, List, Trash2, ChevronLeft, ChevronRight, LogOut, Users, Loader2, ShieldCheck, AlertCircle, Database, Terminal, Check, Copy, RefreshCcw, Info } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Auth } from './components/Auth';
 import { LegacySync } from './components/LegacySync';
@@ -103,7 +103,7 @@ const Dashboard = () => {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 pb-20 font-sans">
+    <div className="min-h-screen bg-gray-50 text-gray-800 pb-20 font-sans animate-fade-in">
       {showLegacySync && <LegacySync onSyncComplete={() => { setShowLegacySync(false); fetchData(); }} />}
       <header className="bg-white shadow-sm sticky top-0 z-10 border-b border-gray-100">
         <div className="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -163,7 +163,6 @@ const AppContent = () => {
   const { session, loading, tenant, dbError, refreshUserData, signOut } = useAuth();
   const [copied, setCopied] = useState(false);
 
-  // DEZE SQL CODE IS NU COMPLEET (Aanmaken tabellen + Rechten fixen)
   const sqlFix = `-- 1. MAAK ALLE TABELLEN AAN
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
@@ -215,7 +214,7 @@ CREATE TABLE IF NOT EXISTS public.incomes (
   UNIQUE(tenant_id)
 );
 
--- 2. ZET ALLE RECHTEN OPEN (Allow All)
+-- 2. ZET ALLE RECHTEN OPEN
 DO $$ 
 DECLARE 
     t text;
@@ -233,68 +232,79 @@ END $$;`;
     setTimeout(() => setCopied(false), 3000);
   };
 
-  if (loading) return <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-400 space-y-4"><Loader2 className="animate-spin text-primary w-10 h-10" /><span className="text-xs font-bold uppercase tracking-widest">Laden...</span></div>;
+  if (loading) return <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-primary w-10 h-10 mb-4" /><span className="text-xs font-bold uppercase tracking-widest text-gray-400">Database laden...</span></div>;
   if (!session) return <Auth />;
   
   if (!tenant) {
     return (
-       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6">
-         <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl max-w-xl w-full border border-gray-100 relative overflow-hidden">
+       <div className="min-h-screen bg-gray-50 p-4 flex flex-col items-center justify-center font-sans overflow-y-auto">
+         <div className="bg-white p-8 sm:p-12 rounded-[2.5rem] shadow-2xl max-w-lg w-full border border-gray-100 relative my-8">
            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-cyan-400 to-primary"></div>
-           <div className="bg-cyan-50 text-primary w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner"><Database size={32} /></div>
            
-           <h2 className="text-2xl font-extrabold text-center text-gray-800 mb-2 tracking-tight">Database Inrichten</h2>
-           <p className="text-gray-500 text-sm text-center mb-8 leading-relaxed px-4">
-             Je bent bijna binnen! We moeten alleen nog even je database mappen aanmaken en de rechten goedzetten.
-           </p>
+           <div className="bg-cyan-50 text-primary w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner"><Database size={28} /></div>
+           
+           <h2 className="text-xl font-black text-center text-gray-800 mb-2 tracking-tight">Database Inrichten</h2>
+           <p className="text-[11px] text-gray-400 text-center mb-8 uppercase font-bold tracking-widest">Stap 2 van 2</p>
 
            <div className="space-y-4">
-             <div className="flex items-start gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100 hover:border-cyan-200 transition-colors">
-                <div className="bg-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-primary shadow-sm flex-shrink-0">1</div>
-                <p className="text-xs text-gray-600">Ga naar je <b>Supabase Dashboard</b> en klik op <b>SQL Editor</b>.</p>
+             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex items-start gap-4">
+                <div className="bg-white w-6 h-6 rounded-lg shadow-sm flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0">1</div>
+                <p className="text-[11px] text-gray-500 leading-normal">Open de <b>SQL Editor</b> in je Supabase Dashboard.</p>
              </div>
 
-             <div className="flex items-start gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100 hover:border-cyan-200 transition-colors">
-                <div className="bg-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-primary shadow-sm flex-shrink-0">2</div>
-                <div className="flex-1">
-                  <p className="text-xs text-gray-600 mb-3">Klik op <b>New Query</b> en plak deze volledige code:</p>
-                  <div className="relative group">
-                    <pre className="bg-gray-900 text-cyan-400 p-4 rounded-xl text-[10px] font-mono overflow-x-auto max-h-48 border border-gray-800 shadow-inner scrollbar-thin scrollbar-thumb-gray-700">
+             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="bg-white w-6 h-6 rounded-lg shadow-sm flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0">2</div>
+                  <p className="text-[11px] text-gray-500 leading-normal">Kopieer en plak de code hieronder:</p>
+                </div>
+                
+                <div className="relative group">
+                  <div className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800 shadow-xl">
+                    <pre className="p-4 text-[9px] font-mono text-cyan-400 overflow-x-auto max-h-40 scrollbar-thin scrollbar-thumb-gray-700">
                       {sqlFix}
                     </pre>
                     <button 
                       onClick={handleCopy}
-                      className="absolute top-2 right-2 bg-white/10 hover:bg-white/20 text-white p-2 rounded-lg transition-all backdrop-blur-sm flex items-center gap-1 border border-white/10"
+                      className="absolute top-2 right-2 bg-primary/90 hover:bg-primary text-white p-2 rounded-lg transition-all flex items-center gap-1.5 shadow-lg active:scale-95"
                     >
-                      {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-                      <span className="text-[9px] font-bold uppercase">{copied ? 'Gekopieerd' : 'Kopieer'}</span>
+                      {copied ? <Check size={12} /> : <Copy size={12} />}
+                      <span className="text-[9px] font-black uppercase">{copied ? 'Klaar!' : 'Kopieer'}</span>
                     </button>
                   </div>
                 </div>
              </div>
 
-             <div className="flex items-start gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <div className="bg-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-primary shadow-sm flex-shrink-0">3</div>
-                <p className="text-xs text-gray-600">Druk op de blauwe knop <b>Run</b> in Supabase. Kom daarna hier terug.</p>
+             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex items-start gap-4">
+                <div className="bg-white w-6 h-6 rounded-lg shadow-sm flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0">3</div>
+                <p className="text-[11px] text-gray-500 leading-normal">Klik op <b>Run</b> in Supabase en kom hier terug.</p>
              </div>
            </div>
 
-           <div className="mt-10 flex flex-col gap-3">
+           <div className="mt-10 space-y-3">
              <button 
                onClick={refreshUserData}
-               className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-lg shadow-primary/20 hover:bg-secondary hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center group"
+               className="w-full bg-primary text-white py-4 rounded-2xl font-black text-sm shadow-xl shadow-primary/20 hover:bg-secondary active:scale-95 transition-all flex items-center justify-center group"
              >
-               <RefreshCcw size={18} className="mr-2 group-hover:rotate-180 transition-transform duration-500" /> Ik heb de SQL uitgevoerd
+               <RefreshCcw size={18} className="mr-2 group-hover:rotate-180 transition-transform duration-700" />
+               Alles Uitgevoerd
              </button>
-             <button onClick={signOut} className="text-xs text-gray-400 font-bold uppercase tracking-widest py-2 hover:text-red-500 transition-colors text-center">Log Uit en probeer opnieuw</button>
+             
+             <button onClick={signOut} className="w-full text-[10px] text-gray-300 font-bold uppercase tracking-widest py-2 hover:text-red-400 transition-colors">Log uit</button>
            </div>
            
            {dbError && (
-             <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 animate-fade-in">
-               <AlertCircle size={14} className="text-red-400 mt-0.5" />
-               <p className="text-[10px] text-red-500 font-mono leading-tight">Status: {dbError}</p>
+             <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 animate-fade-in">
+               <AlertCircle size={14} className="text-amber-500 mt-0.5" />
+               <div className="flex-1">
+                 <p className="text-[10px] text-amber-600 font-bold uppercase mb-1">Status Melding</p>
+                 <p className="text-[10px] text-amber-700 leading-tight font-mono">{dbError}</p>
+               </div>
              </div>
            )}
+         </div>
+         
+         <div className="flex items-center gap-2 text-gray-300 text-[10px] font-bold uppercase tracking-[0.2em]">
+           <ShieldCheck size={12} /> Veilig Verbonden
          </div>
        </div>
     );

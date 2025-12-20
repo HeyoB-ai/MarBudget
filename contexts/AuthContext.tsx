@@ -65,72 +65,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userId = currentUser.id;
       
-      // 1. Get Profile
-      let { data: profileData, error: profileError } = await supabase
+      // 1. Check Profile
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
       if (profileError) {
-        setDbError(`Database toegang geweigerd (Profiles): ${profileError.message}`);
         console.error("Profile Fetch Error:", profileError);
+        // Als de tabel niet bestaat, stoppen we hier en tonen de SQL fix
+        if (profileError.message.includes("does not exist")) {
+           setDbError("Database tabellen ontbreken nog.");
+           setLoading(false);
+           return;
+        }
       }
 
-      // Probeer profiel aan te maken als het ontbreekt
-      if (!profileData && currentUser.user_metadata?.full_name) {
+      let currentProfile = profileData;
+
+      // 2. Auto-create Profile if missing
+      if (!currentProfile) {
         const { data: newProfile, error: insertError } = await supabase.from('profiles').insert({
           id: userId,
           email: currentUser.email,
-          full_name: currentUser.user_metadata.full_name
+          full_name: currentUser.user_metadata?.full_name || 'Nieuwe Gebruiker'
         }).select().maybeSingle();
         
         if (insertError) {
           console.error("Profile Insert Error:", insertError);
-          setDbError("Kon profiel niet aanmaken. Check je RLS Policies in Supabase.");
-        } else {
-          profileData = newProfile;
+          setDbError("Kan profiel niet aanmaken. Voer eerst de SQL code uit.");
+          setLoading(false);
+          return;
         }
+        currentProfile = newProfile;
       }
-      setProfile(profileData);
+      setProfile(currentProfile);
 
-      // 2. Get Member Role & Tenant ID
-      let { data: memberData, error: memberError } = await supabase
+      // 3. Get Member Role & Tenant
+      let { data: memberData } = await supabase
         .from('tenant_members')
         .select('role, tenant_id')
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (memberError) console.error("Member Fetch Error:", memberError);
+      // 4. Auto-setup Tenant if missing
+      if (!memberData) {
+        const pendingRole = currentUser.user_metadata?.pending_role || 'master_admin';
+        const pendingCode = currentUser.user_metadata?.pending_family_code;
 
-      // AUTO-SETUP ALS LID ONTBREEKT
-      if (!memberData && currentUser.user_metadata?.pending_role) {
-        const pendingRole = currentUser.user_metadata.pending_role;
-        const pendingCode = currentUser.user_metadata.pending_family_code;
-
-        if (pendingRole === 'master_admin') {
-          // Maak nieuw huishouden
-          const { data: newTenant, error: tenantError } = await supabase.from('tenants').insert({
-            name: `Gezin ${currentUser.user_metadata.full_name.split(' ')[0]}`,
+        if (pendingRole === 'master_admin' || !pendingCode) {
+          const { data: newTenant, error: tErr } = await supabase.from('tenants').insert({
+            name: `Gezin ${currentProfile?.full_name?.split(' ')[0] || 'Budget'}`,
             subscription_tier: 'S',
             max_users: 5
           }).select().maybeSingle();
 
-          if (tenantError) {
-            console.error("Tenant Creation Error:", tenantError);
-            setDbError("Database blokkeert aanmaken van een nieuw huishouden (Tenants RLS).");
-          } else if (newTenant) {
-            const { data: newMember, error: memberInsertError } = await supabase.from('tenant_members').insert({
+          if (!tErr && newTenant) {
+            const { data: newMember } = await supabase.from('tenant_members').insert({
               tenant_id: newTenant.id,
               user_id: userId,
               role: 'master_admin'
             }).select().maybeSingle();
-            
-            if (memberInsertError) console.error("Member Insert Error:", memberInsertError);
             memberData = newMember;
+          } else if (tErr) {
+            console.error("Tenant Error:", tErr);
+            setDbError("Fout bij aanmaken huishouden. Is de SQL correct uitgevoerd?");
           }
         } else if (pendingRole === 'sub_user' && pendingCode) {
-          // Sluit aan bij bestaand huishouden
           const { data: targetTenant } = await supabase.from('tenants').select('id').eq('id', pendingCode).maybeSingle();
           if (targetTenant) {
             const { data: newMember } = await supabase.from('tenant_members').insert({
@@ -148,8 +150,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: tenantData } = await supabase.from('tenants').select('*').eq('id', memberData.tenant_id).single();
         setTenant(tenantData as Tenant);
       }
-    } catch (error) {
-      console.error('Algemene fout in AuthContext:', error);
+    } catch (error: any) {
+      console.error('AuthContext Error:', error);
+      setDbError(error.message);
     } finally {
       setLoading(false);
     }
