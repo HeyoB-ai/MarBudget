@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { formatCurrency } from '../constants';
-import { Save, Plus, AlertTriangle, Trash2, Sheet, UploadCloud, BookOpen, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Plus, AlertTriangle, Trash2, Sheet, UploadCloud, BookOpen, Copy, Check, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { Expense } from '../types';
 import { postToGoogleSheet } from '../services/sheetService';
 
@@ -107,25 +107,46 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     }
   };
 
-  const googleScriptCode = `function doPost(e) {
+  const googleScriptCode = `// 1. PLAK DEZE CODE IN GOOGLE SCRIPTS
+function doPost(e) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  var data = JSON.parse(e.postData.contents);
   
-  // Als het een array van uitgaven is (sync) of een enkele
+  // Voorkom foutmeldingen als er handmatig op 'uitvoeren' wordt geklikt
+  if (!e || !e.postData || !e.postData.contents) {
+    return ContentService.createTextOutput("Fout: Geen data ontvangen. Gebruik de app om te testen.");
+  }
+
+  var data = JSON.parse(e.postData.contents);
   var items = Array.isArray(data) ? data : [data];
   
   items.forEach(function(item) {
     sheet.appendRow([
       new Date(), 
-      item.description, 
-      item.category, 
-      item.amount, 
-      item.date,
-      item.receiptImage || "Geen foto"
+      item.description || "Onbekend", 
+      item.category || "Overig", 
+      item.amount || 0, 
+      item.date || "",
+      item.receiptImage ? "Heeft foto" : "Geen foto"
     ]);
   });
   
   return ContentService.createTextOutput("OK").setMimeType(ContentService.MimeType.TEXT);
+}
+
+// 2. TEST-FUNCTIE: Selecteer deze in de balk bovenin en klik op 'Uitvoeren'
+function testMe() {
+  var mockEvent = {
+    postData: {
+      contents: JSON.stringify({
+        description: "TEST UITGAVE",
+        category: "Test",
+        amount: 12.34,
+        date: "2024-01-01"
+      })
+    }
+  };
+  doPost(mockEvent);
+  Logger.log("Kijk nu in je Google Sheet, er staat een test-regel!");
 }`;
 
   const copyScriptCode = () => {
@@ -189,10 +210,10 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
               <div className="bg-white p-5 rounded-2xl border border-green-100 space-y-4 animate-fade-in shadow-sm">
                 <div className="space-y-2">
                   <p className="text-[11px] font-bold text-gray-600 leading-relaxed">
-                    1. Ga naar je Google Script en plak deze code:
+                    1. Plak de code hieronder in je Google Script venster.
                   </p>
                   <div className="relative">
-                    <pre className="bg-gray-900 text-cyan-400 p-4 rounded-xl text-[10px] font-mono overflow-x-auto leading-relaxed max-h-40">
+                    <pre className="bg-gray-900 text-cyan-400 p-4 rounded-xl text-[10px] font-mono overflow-x-auto leading-relaxed max-h-60">
                       {googleScriptCode}
                     </pre>
                     <button 
@@ -204,10 +225,9 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
                   </div>
                 </div>
                 <p className="text-[11px] font-bold text-gray-600 leading-relaxed">
-                  2. Klik op <span className="text-blue-600">Implementeren</span> → <span className="text-blue-600">Nieuwe implementatie</span>.<br/>
-                  3. Type: <span className="font-black">Web-app</span>.<br/>
-                  4. Toegang: <span className="font-black">Iedereen (Anyone)</span>.<br/>
-                  5. Kopieer de link die eindigt op <span className="bg-gray-100 px-1 rounded">/exec</span>.
+                  2. Sla op en klik op <span className="text-blue-600 font-black">Implementeren</span> → <span className="text-blue-600 font-black">Nieuwe implementatie</span>.<br/>
+                  3. Selecteer <span className="font-black">Web-app</span>. Toegang: <span className="font-black">Iedereen</span>.<br/>
+                  4. <span className="text-amber-600 font-bold italic">Belangrijk:</span> Klik in Google <b>niet</b> op "Uitvoeren" bij <code>doPost</code>. Gebruik de functie <code>testMe</code> in de lijst bovenin om te testen!
                 </p>
               </div>
             )}
@@ -331,10 +351,3 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     </div>
   );
 };
-
-const X = ({ size, className }: { size: number, className: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <line x1="18" y1="6" x2="6" y2="18"></line>
-    <line x1="6" y1="6" x2="18" y2="18"></line>
-  </svg>
-);
