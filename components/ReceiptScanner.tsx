@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Check, X, AlertCircle } from 'lucide-react';
+import { Camera, Check, X, AlertCircle, AlertTriangle } from 'lucide-react';
 import { analyzeReceipt, fileToGenerativePart } from '../services/geminiService';
 import { ReceiptAnalysisResult, Expense } from '../types';
 import { generateId } from '../constants';
@@ -9,22 +9,32 @@ interface ReceiptScannerProps {
   onAddExpense: (expense: Expense) => void;
   categories: string[];
   currentMonth: Date;
+  existingExpenses: Expense[];
 }
 
-export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, categories, currentMonth }) => {
+export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, categories, currentMonth, existingExpenses }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<ReceiptAnalysisResult | null>(null);
   
   const [amountInput, setAmountInput] = useState<string>(""); 
   const [error, setError] = useState<string | null>(null);
+  const [isDuplicate, setIsDuplicate] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (analysisResult?.amount !== undefined) {
       setAmountInput(analysisResult.amount.toString().replace('.', ','));
+      
+      // Check for duplicates
+      const duplicateFound = existingExpenses.some(e => 
+        e.amount === analysisResult.amount && 
+        e.date === analysisResult.date && 
+        e.description.toLowerCase().trim() === analysisResult.description.toLowerCase().trim()
+      );
+      setIsDuplicate(duplicateFound);
     }
-  }, [analysisResult]);
+  }, [analysisResult, existingExpenses]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,6 +45,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
       setError(null);
       setAnalysisResult(null);
       setAmountInput("");
+      setIsDuplicate(false);
 
       const base64Data = await fileToGenerativePart(file);
       setPreview(`data:${file.type};base64,${base64Data}`);
@@ -76,6 +87,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
     setAnalysisResult(null);
     setAmountInput("");
     setError(null);
+    setIsDuplicate(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -90,7 +102,6 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
 
   const handleAmountInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    // Allow digits, comma, dot
     if (/^[\d,.]*$/.test(val)) {
        setAmountInput(val);
        const parsed = parseFloat(val.replace(',', '.'));
@@ -110,8 +121,8 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 mb-6 border border-gray-100">
-      <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+    <div className="bg-white rounded-[2.5rem] shadow-sm p-6 mb-6 border border-gray-100">
+      <h2 className="text-lg font-black text-gray-800 mb-4 flex items-center">
         <Camera className="w-5 h-5 mr-2 text-primary" />
         Nieuwe Uitgave
       </h2>
@@ -119,13 +130,13 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
       {!preview ? (
         <div 
           onClick={triggerCamera}
-          className="border-2 border-dashed border-gray-300 rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors"
+          className="border-2 border-dashed border-gray-200 rounded-[2rem] p-10 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-all group"
         >
-          <div className="bg-primary/10 p-4 rounded-full mb-3">
-            <Camera className="w-8 h-8 text-primary" />
+          <div className="bg-primary/5 p-5 rounded-3xl mb-4 group-hover:scale-110 transition-transform">
+            <Camera className="w-10 h-10 text-primary" />
           </div>
-          <p className="text-sm font-medium text-gray-600">Maak foto of kies bestand</p>
-          <p className="text-xs text-gray-400 mt-1">AI leest automatisch de details</p>
+          <p className="text-sm font-bold text-gray-600">Scan bonnetje</p>
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2">AI leest automatisch de details</p>
           <input 
             type="file" 
             ref={fileInputRef} 
@@ -136,83 +147,91 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
           />
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="relative rounded-lg overflow-hidden max-h-64 bg-black flex justify-center">
+        <div className="space-y-5">
+          <div className="relative rounded-[2rem] overflow-hidden max-h-72 bg-gray-900 flex justify-center border border-gray-100 shadow-inner">
             <img src={preview} alt="Receipt Preview" className="h-full object-contain" />
             <button 
               onClick={resetScanner}
-              className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full hover:bg-black/70"
+              className="absolute top-4 right-4 bg-white/90 text-gray-800 p-2 rounded-2xl shadow-lg hover:bg-white transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {isAnalyzing && (
-            <div className="flex flex-col items-center justify-center py-8 text-primary">
+            <div className="flex flex-col items-center justify-center py-10 text-primary">
               <Spinner />
-              <span className="mt-3 text-sm font-medium">Bonnetje analyseren...</span>
+              <span className="mt-4 text-xs font-black uppercase tracking-[0.2em]">Bonnetje analyseren...</span>
             </div>
           )}
 
           {error && (
-             <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm break-words">
-               <strong>Fout:</strong> {error}
-               <button onClick={resetScanner} className="block mt-2 font-medium underline">Probeer opnieuw</button>
+             <div className="bg-red-50 text-red-600 p-5 rounded-3xl text-xs border border-red-100 flex items-start animate-shake">
+               <AlertCircle className="w-5 h-5 mr-3 flex-shrink-0" />
+               <div className="flex-1">
+                 <strong className="block mb-1">Analyse mislukt</strong>
+                 <p className="opacity-80">{error}</p>
+                 <button onClick={resetScanner} className="mt-3 font-bold underline uppercase tracking-widest text-[9px]">Opnieuw proberen</button>
+               </div>
              </div>
           )}
 
           {analysisResult && !isAnalyzing && (
-            <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+            <div className="bg-gray-50 p-6 rounded-[2rem] space-y-4 border border-gray-100 animate-fade-in">
               
-              {isDateMismatch() && (
-                <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-md text-xs flex items-start">
-                   <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
-                   <span>
-                     <strong>Let op:</strong> De datum van deze bon ({new Date(analysisResult.date).toLocaleDateString('nl-NL')}) valt buiten de maand die je nu bekijkt. 
-                     Het bedrag wordt opgeslagen bij die maand.
-                   </span>
+              {isDuplicate && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl text-xs flex items-center mb-2 animate-bounce-short">
+                   <AlertTriangle className="w-5 h-5 mr-3 text-amber-500 flex-shrink-0" />
+                   <div className="font-bold">Let op: Dit bonnetje lijkt al eens gescand te zijn!</div>
                 </div>
               )}
 
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase">Winkel / Omschrijving</label>
+              {isDateMismatch() && (
+                <div className="bg-blue-50 border border-blue-100 text-blue-800 p-4 rounded-2xl text-[10px] flex items-start font-medium">
+                   <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5 text-blue-400" />
+                   <span>De datum ({new Date(analysisResult.date).toLocaleDateString('nl-NL')}) valt buiten de huidige maand.</span>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Winkel / Omschrijving</label>
                 <input 
                   type="text" 
                   value={analysisResult.description} 
                   onChange={(e) => handleUpdateResult('description', e.target.value)}
-                  className="w-full mt-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:outline-none"
+                  className="w-full p-4 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none font-bold text-gray-800 text-sm transition-all"
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase">Bedrag (€)</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Bedrag (€)</label>
                   <input 
                     type="text" 
                     inputMode="decimal"
                     placeholder="0,00"
                     value={amountInput} 
                     onChange={handleAmountInputChange}
-                    className="w-full mt-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:outline-none"
+                    className="w-full p-4 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none font-black text-gray-800 text-sm transition-all"
                   />
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase">Datum</label>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Datum</label>
                   <input 
                     type="date" 
                     value={analysisResult.date} 
                     onChange={(e) => handleUpdateResult('date', e.target.value)}
-                    className="w-full mt-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:outline-none"
+                    className="w-full p-4 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none font-bold text-gray-800 text-sm transition-all"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase">Categorie</label>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Categorie</label>
                 <select 
                   value={analysisResult.category} 
                   onChange={(e) => handleUpdateResult('category', e.target.value)}
-                  className="w-full mt-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:outline-none bg-white"
+                  className="w-full p-4 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none font-bold text-gray-800 text-sm transition-all appearance-none"
                 >
                   {categories.map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -225,10 +244,10 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
 
               <button 
                 onClick={handleSave}
-                className="w-full bg-primary hover:bg-secondary text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center transition-colors mt-4"
+                className={`w-full py-4 px-6 rounded-2xl flex items-center justify-center font-black uppercase tracking-widest text-xs shadow-lg transition-all active:scale-95 mt-4 ${isDuplicate ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary hover:bg-secondary'} text-white`}
               >
                 <Check className="w-5 h-5 mr-2" />
-                Opslaan & Toevoegen
+                {isDuplicate ? 'Toch Opslaan' : 'Toevoegen aan Lijst'}
               </button>
             </div>
           )}

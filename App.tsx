@@ -144,7 +144,12 @@ const Dashboard = () => {
 
         {activeTab === 'dashboard' ? (
           <div className="animate-fade-in space-y-8">
-            <ReceiptScanner onAddExpense={addExpense} categories={Object.keys(budgets)} currentMonth={selectedMonth} />
+            <ReceiptScanner 
+              onAddExpense={addExpense} 
+              categories={Object.keys(budgets)} 
+              currentMonth={selectedMonth}
+              existingExpenses={expenses}
+            />
             {loadingData ? <div className="py-20 text-center text-gray-400 flex flex-col items-center"><Loader2 className="animate-spin mb-3 w-8 h-8 opacity-20" /><span className="text-xs font-bold uppercase tracking-widest">Data ophalen...</span></div> : <BudgetOverview expenses={currentMonthExpenses} budgets={budgets} income={income} currentMonth={selectedMonth} />}
           </div>
         ) : (
