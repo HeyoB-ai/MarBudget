@@ -1,60 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Key, ChevronLeft, Mail, Loader2, RefreshCw, HelpCircle, Clock, Check, RotateCcw } from 'lucide-react';
+import { Wallet, AlertTriangle, Users, ArrowRight, ShieldCheck, Mail, Loader2, RefreshCw, ChevronLeft, RotateCcw, UserPlus, Briefcase } from 'lucide-react';
 
 export const Auth = () => {
   const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [familyCode, setFamilyCode] = useState('');
   
-  const [mode, setMode] = useState<'login' | 'register_select' | 'register_new' | 'register_join'>('login');
+  const [mode, setMode] = useState<'login' | 'register_select' | 'register_coach' | 'register_client'>('login');
   const [error, setError] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
-  const [isConfigured, setIsConfigured] = useState(true);
-  const [rateLimitSeconds, setRateLimitSeconds] = useState<number>(0);
-
-  const currentUrl = window.location.origin + window.location.pathname;
-  const cleanUrl = currentUrl.replace(/\/$/, "");
-
-  // Timer voor de beveiligingspauze
-  useEffect(() => {
-    if (rateLimitSeconds > 0) {
-      const timer = setInterval(() => {
-        setRateLimitSeconds((prev) => (prev > 0 ? prev - 1 : 0));
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [rateLimitSeconds]);
-
-  useEffect(() => {
-    // @ts-ignore
-    const config = typeof __APP_CONFIG__ !== 'undefined' ? __APP_CONFIG__ : { VITE_SUPABASE_URL: '', VITE_SUPABASE_ANON_KEY: '' };
-    if (!config.VITE_SUPABASE_URL || config.VITE_SUPABASE_URL.includes('placeholder')) {
-      setIsConfigured(false);
-    }
-  }, []);
-
-  const handleAuthError = (err: any) => {
-    const msg = err.message || "";
-    // Zoek naar getallen in de foutmelding (bijv. "14 seconds")
-    const match = msg.match(/\d+/);
-    if (match && (msg.includes("security") || msg.includes("limit") || msg.includes("after"))) {
-      setRateLimitSeconds(parseInt(match[0]));
-      return `Te veel pogingen. Wacht ${match[0]} seconden.`;
-    }
-    if (msg.includes("Invalid login credentials")) return "E-mail of wachtwoord klopt niet.";
-    if (msg.includes("Email not confirmed")) return "E-mail is nog niet bevestigd. Klik op de link in je mail!";
-    if (msg.includes("already registered")) return "Dit account bestaat al. Probeer in te loggen.";
-    return "Er ging iets mis. Probeer het opnieuw.";
-  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isConfigured || rateLimitSeconds > 0) return;
-    
     setLoading(true);
     setError(null);
 
@@ -65,7 +25,6 @@ export const Auth = () => {
           password 
         });
         if (loginError) throw loginError;
-        window.location.reload();
       } else {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: email.trim().toLowerCase(),
@@ -73,137 +32,110 @@ export const Auth = () => {
           options: { 
             data: { 
               full_name: fullName,
-              pending_role: mode === 'register_new' ? 'master_admin' : 'sub_user',
-              pending_family_code: mode === 'register_join' ? familyCode : null
-            },
-            emailRedirectTo: cleanUrl 
+              pending_role: mode === 'register_coach' ? 'master_admin' : 'sub_user',
+              pending_family_code: mode === 'register_client' ? familyCode : null
+            }
           },
         });
 
         if (signUpError) throw signUpError;
-        
         if (data.user && !data.session) {
-          setSuccessInfo("Bevestigingsmail verstuurd!");
-        } else if (data.session) {
-          window.location.reload();
+          setSuccessInfo("Bevestigingsmail verstuurd naar " + email);
         }
       }
     } catch (err: any) {
-      setError(handleAuthError(err));
+      setError(err.message || "Er ging iets mis. Controleer je gegevens.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResend = async () => {
-    if (rateLimitSeconds > 0) return;
-    setResending(true);
-    setError(null);
-    try {
-      const { error: resendError } = await supabase.auth.resend({
-        type: 'signup',
-        email: email.trim().toLowerCase(),
-        options: { emailRedirectTo: cleanUrl }
-      });
-      if (resendError) throw resendError;
-      alert("Nieuwe mail is onderweg!");
-    } catch (err: any) {
-      setError(handleAuthError(err));
-    } finally {
-      setResending(false);
-    }
-  };
-
-  const resetAll = () => {
-    setError(null);
-    setSuccessInfo(null);
-    setMode('login');
-    setLoading(false);
-  };
-
-  if (!isConfigured) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-center font-sans">
-        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md border border-red-100">
-          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold mb-2">Supabase Fout</h1>
-          <p className="text-gray-500 text-sm">Controleer de API instellingen.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 font-sans">
-      <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md animate-fade-in border border-gray-100 relative">
+      <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl w-full max-w-md animate-fade-in border border-gray-100">
         
         <div className="flex flex-col items-center mb-8">
           <div className="bg-primary text-white p-4 rounded-2xl shadow-lg mb-4">
             <Wallet size={32} />
           </div>
           <h1 className="text-2xl font-black text-gray-800 tracking-tight">MarBudget</h1>
+          <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mt-1">Slimme Budgetcoach</p>
         </div>
 
-        {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-2xl mb-6 text-xs border border-red-100 flex items-center animate-shake">
-            <AlertTriangle className="w-4 h-4 mr-3 flex-shrink-0" />
-            <p className="font-bold">{error}</p>
-          </div>
-        )}
-
         {successInfo ? (
-          <div className="text-center space-y-6 animate-fade-in">
-            <div className="bg-cyan-50 p-8 rounded-[2rem] border border-cyan-100">
+          <div className="text-center py-6 animate-fade-in">
+            <div className="bg-primary/10 p-6 rounded-3xl mb-6">
               <Mail className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="font-bold text-lg mb-2">Check je inbox</h3>
-              <p className="text-sm text-gray-500 mb-6">We hebben een mail gestuurd naar <b>{email}</b>.</p>
-              
-              <button 
-                onClick={handleResend}
-                disabled={resending || rateLimitSeconds > 0}
-                className="w-full bg-white text-primary border border-primary/20 py-3 rounded-xl text-xs font-bold flex items-center justify-center mb-3 hover:bg-cyan-100 transition-all disabled:opacity-50"
-              >
-                {rateLimitSeconds > 0 ? <Clock size={14} className="mr-2" /> : <RefreshCw size={14} className="mr-2" />}
-                {rateLimitSeconds > 0 ? `Wacht ${rateLimitSeconds}s...` : "Stuur opnieuw"}
-              </button>
-
-              <button 
-                onClick={resetAll}
-                className="text-[10px] text-gray-400 font-bold uppercase tracking-widest hover:text-primary transition-colors flex items-center justify-center mx-auto"
-              >
-                <RotateCcw size={10} className="mr-1" /> Toch inloggen?
-              </button>
+              <h3 className="font-bold text-lg mb-2 text-gray-800">Check je mail</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">{successInfo}</p>
             </div>
+            <button onClick={() => setMode('login')} className="text-primary font-bold text-sm flex items-center justify-center mx-auto hover:underline">
+              <RotateCcw size={14} className="mr-2" /> Terug naar inloggen
+            </button>
           </div>
         ) : (
           <>
             <div className="flex bg-gray-100 p-1.5 rounded-2xl mb-8">
-              <button onClick={() => { setMode('login'); setError(null); }} className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode === 'login' ? 'bg-white text-primary shadow-md' : 'text-gray-400'}`}>Inloggen</button>
-              <button onClick={() => { setMode('register_select'); setError(null); }} className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode.startsWith('register') ? 'bg-white text-primary shadow-md' : 'text-gray-400'}`}>Registreren</button>
+              <button onClick={() => setMode('login')} className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode === 'login' ? 'bg-white text-primary shadow-md' : 'text-gray-400'}`}>Inloggen</button>
+              <button onClick={() => setMode('register_select')} className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${mode.startsWith('register') ? 'bg-white text-primary shadow-md' : 'text-gray-400'}`}>Aanmelden</button>
             </div>
+
+            {error && (
+              <div className="bg-red-50 text-red-600 p-4 rounded-2xl mb-6 text-xs border border-red-100 flex items-center animate-shake">
+                <AlertTriangle className="w-4 h-4 mr-3 flex-shrink-0" />
+                <p className="font-bold">{error}</p>
+              </div>
+            )}
 
             {mode === 'login' ? (
               <form onSubmit={handleAuth} className="space-y-4">
-                <input type="email" required placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
-                <input type="password" required placeholder="Wachtwoord" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
-                <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-secondary transition-all flex justify-center items-center active:scale-95 disabled:opacity-70">
-                  {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <>Inloggen <ArrowRight className="ml-2 w-4 h-4" /></>}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-4">E-mailadres</label>
+                  <input type="email" required placeholder="naam@voorbeeld.nl" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-4">Wachtwoord</label>
+                  <input type="password" required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
+                </div>
+                <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-secondary transition-all flex justify-center items-center active:scale-95 disabled:opacity-70 mt-4">
+                  {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <>Start Sessie <ArrowRight className="ml-2 w-4 h-4" /></>}
                 </button>
               </form>
             ) : mode === 'register_select' ? (
-              <div className="space-y-3">
-                <button onClick={() => setMode('register_new')} className="w-full p-5 bg-white border border-gray-100 rounded-2xl hover:border-primary transition-all text-left flex items-center"><ShieldCheck className="text-primary mr-4" /> <div><div className="font-bold text-sm">Beheerder</div><div className="text-[10px] text-gray-400">Nieuw huishouden starten</div></div></button>
-                <button onClick={() => setMode('register_join')} className="w-full p-5 bg-white border border-gray-100 rounded-2xl hover:border-primary transition-all text-left flex items-center"><Users className="text-primary mr-4" /> <div><div className="font-bold text-sm">Gezinslid</div><div className="text-[10px] text-gray-400">Word lid van bestaand huishouden</div></div></button>
+              <div className="space-y-4 animate-fade-in">
+                <p className="text-center text-gray-500 text-sm mb-4">Hoe wil je MarBudget gebruiken?</p>
+                <button onClick={() => setMode('register_coach')} className="w-full p-6 bg-white border-2 border-gray-100 rounded-[2rem] hover:border-primary hover:bg-primary/5 transition-all text-left flex items-center group">
+                  <div className="bg-primary/10 p-3 rounded-2xl text-primary group-hover:bg-primary group-hover:text-white transition-colors mr-4"><Briefcase size={24} /></div>
+                  <div>
+                    <div className="font-bold text-gray-800">Ik ben een Coach</div>
+                    <div className="text-[10px] text-gray-400 font-medium">Beheer meerdere cliënten en budgetten</div>
+                  </div>
+                </button>
+                <button onClick={() => setMode('register_client')} className="w-full p-6 bg-white border-2 border-gray-100 rounded-[2rem] hover:border-primary hover:bg-primary/5 transition-all text-left flex items-center group">
+                  <div className="bg-primary/10 p-3 rounded-2xl text-primary group-hover:bg-primary group-hover:text-white transition-colors mr-4"><UserPlus size={24} /></div>
+                  <div>
+                    <div className="font-bold text-gray-800">Ik ben een Cliënt</div>
+                    <div className="text-[10px] text-gray-400 font-medium">Koppel aan een coach en beheer je bonnen</div>
+                  </div>
+                </button>
               </div>
             ) : (
               <form onSubmit={handleAuth} className="space-y-3 animate-fade-in">
-                <button type="button" onClick={() => setMode('register_select')} className="text-[10px] font-bold text-primary flex items-center mb-2 uppercase tracking-wider"><ChevronLeft size={12} /> Terug</button>
-                {mode === 'register_join' && <input type="text" required placeholder="Gezins Code" value={familyCode} onChange={(e) => setFamilyCode(e.target.value)} className="w-full p-4 bg-cyan-50 border border-primary/10 rounded-2xl font-mono text-xs text-center" />}
-                <input type="text" required placeholder="Je Naam" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm" />
-                <input type="email" required placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm" />
-                <input type="password" required placeholder="Wachtwoord" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm" />
-                <button type="submit" disabled={loading || rateLimitSeconds > 0} className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-lg mt-2 flex justify-center">
-                  {loading ? <Loader2 className="animate-spin w-5 h-5" /> : (rateLimitSeconds > 0 ? `Wacht ${rateLimitSeconds}s` : "Account maken")}
+                <button type="button" onClick={() => setMode('register_select')} className="text-[10px] font-bold text-primary flex items-center mb-4 uppercase tracking-widest"><ChevronLeft size={12} className="mr-1" /> Terug naar keuze</button>
+                
+                {mode === 'register_client' && (
+                  <div className="space-y-1 mb-2">
+                    <label className="text-[10px] font-bold text-primary uppercase ml-4">Coach Code</label>
+                    <input type="text" required placeholder="Plak hier de code van je coach" value={familyCode} onChange={(e) => setFamilyCode(e.target.value)} className="w-full p-4 bg-primary/5 border border-primary/10 rounded-2xl font-mono text-xs text-center" />
+                  </div>
+                )}
+
+                <input type="text" required placeholder="Volledige Naam" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm" />
+                <input type="email" required placeholder="E-mailadres" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm" />
+                <input type="password" required placeholder="Wachtwoord (min. 6 tekens)" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm" />
+                
+                <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-lg mt-4 flex justify-center active:scale-95 transition-all">
+                  {loading ? <Loader2 className="animate-spin w-5 h-5" /> : (mode === 'register_coach' ? "Start Praktijk" : "Koppel met Coach")}
                 </button>
               </form>
             )}

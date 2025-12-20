@@ -10,7 +10,7 @@ interface AuthContextType {
   tenant: Tenant | null;
   role: UserRole | null;
   loading: boolean;
-  dbError: string | null;
+  isCloudReady: boolean;
   signOut: () => Promise<void>;
   refreshUserData: () => Promise<void>;
 }
@@ -22,7 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   tenant: null,
   role: null,
   loading: true,
-  dbError: null,
+  isCloudReady: false,
   signOut: async () => {},
   refreshUserData: async () => {},
 });
@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
-  const [dbError, setDbError] = useState<string | null>(null);
+  const [isCloudReady, setIsCloudReady] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -54,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTenant(null);
         setRole(null);
         setLoading(false);
+        setIsCloudReady(false);
       }
     });
 
@@ -61,102 +62,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchUserData = async (currentUser: User) => {
-    setDbError(null);
     try {
-      const userId = currentUser.id;
-      
-      // 1. Check Profile
-      const { data: profileData, error: profileError } = await supabase
+      // 1. Profiel ophalen/maken
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', currentUser.id)
         .maybeSingle();
 
-      if (profileError) {
-        console.error("Profile Fetch Error:", profileError);
-        if (profileError.message.includes("500") || profileError.message.includes("Internal")) {
-          setDbError("De database is gecrasht (500). Verwijder alle oude SQL queries in Supabase.");
-          setLoading(false);
-          return;
-        }
-      }
-
       let currentProfile = profileData;
-
-      // 2. Auto-create Profile if missing
       if (!currentProfile) {
-        const { data: newProfile, error: insertError } = await supabase.from('profiles').upsert({
-          id: userId,
+        const { data: newP } = await supabase.from('profiles').upsert({
+          id: currentUser.id,
           email: currentUser.email,
-          full_name: currentUser.user_metadata?.full_name || 'Nieuwe Gebruiker'
+          full_name: currentUser.user_metadata?.full_name || 'Gebruiker'
         }).select().maybeSingle();
-        
-        if (insertError) {
-          console.error("Profile Upsert Error:", insertError);
-          setDbError("Kan profiel nog niet aanmaken. Run de 'Deep Clean' SQL.");
-          setLoading(false);
-          return;
-        }
-        currentProfile = newProfile;
+        currentProfile = newP;
       }
       setProfile(currentProfile);
 
-      // 3. Get Member Role & Tenant
-      let { data: memberData, error: memberError } = await supabase
+      // 2. Lidmaatschap checken
+      let { data: memberData } = await supabase
         .from('tenant_members')
         .select('role, tenant_id')
-        .eq('user_id', userId)
+        .eq('user_id', currentUser.id)
         .maybeSingle();
 
-      if (memberError && memberError.message.includes("500")) {
-        setDbError("API fout 500 bij ophalen huishouden. Ververs de pagina.");
-        setLoading(false);
-        return;
-      }
-
-      // 4. Auto-setup Tenant if missing
+      // 3. SaaS Onboarding: Als er geen tenant is, maak deze aan (voor Coaches) of koppel (voor Cliënten)
       if (!memberData) {
         const pendingRole = currentUser.user_metadata?.pending_role || 'master_admin';
         const pendingCode = currentUser.user_metadata?.pending_family_code;
 
         if (pendingRole === 'master_admin' || !pendingCode) {
-          const { data: newTenant, error: tErr } = await supabase.from('tenants').insert({
-            name: `Gezin ${currentProfile?.full_name?.split(' ')[0] || 'Budget'}`,
+          // Coach flow: Nieuwe omgeving maken
+          const { data: newTenant } = await supabase.from('tenants').insert({
+            name: `Praktijk ${currentProfile?.full_name?.split(' ')[0] || 'Budget'}`,
             subscription_tier: 'S',
             max_users: 5
           }).select().maybeSingle();
 
-          if (!tErr && newTenant) {
-            const { data: newMember } = await supabase.from('tenant_members').insert({
+          if (newTenant) {
+            const { data: newM } = await supabase.from('tenant_members').insert({
               tenant_id: newTenant.id,
-              user_id: userId,
+              user_id: currentUser.id,
               role: 'master_admin'
             }).select().maybeSingle();
-            memberData = newMember;
-          } else if (tErr) {
-            console.error("Tenant Error:", tErr);
+            memberData = newM;
           }
-        } else if (pendingRole === 'sub_user' && pendingCode) {
+        } else if (pendingCode) {
+          // Cliënt flow: Koppelen aan coach via code
           const { data: targetTenant } = await supabase.from('tenants').select('id').eq('id', pendingCode).maybeSingle();
           if (targetTenant) {
-            const { data: newMember } = await supabase.from('tenant_members').insert({
+            const { data: newM } = await supabase.from('tenant_members').insert({
               tenant_id: targetTenant.id,
-              user_id: userId,
+              user_id: currentUser.id,
               role: 'sub_user'
             }).select().maybeSingle();
-            memberData = newMember;
+            memberData = newM;
           }
         }
       }
 
       if (memberData) {
         setRole(memberData.role as UserRole);
-        const { data: tenantData } = await supabase.from('tenants').select('*').eq('id', memberData.tenant_id).single();
-        setTenant(tenantData as Tenant);
+        const { data: tData } = await supabase.from('tenants').select('*').eq('id', memberData.tenant_id).maybeSingle();
+        if (tData) {
+          setTenant(tData as Tenant);
+          setIsCloudReady(true);
+        }
       }
-    } catch (error: any) {
-      console.error('AuthContext Error:', error);
-      setDbError(error.message);
+    } catch (error) {
+      console.warn("Verbinding met cloud beperkt. Schakelen naar veilige lokale modus.");
+      setIsCloudReady(false);
     } finally {
       setLoading(false);
     }
@@ -174,7 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, tenant, role, loading, dbError, signOut, refreshUserData }}>
+    <AuthContext.Provider value={{ session, user, profile, tenant, role, loading, isCloudReady, signOut, refreshUserData }}>
       {children}
     </AuthContext.Provider>
   );
