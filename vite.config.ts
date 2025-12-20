@@ -37,8 +37,13 @@ export default defineConfig(({ mode }) => {
       // Inject the config object globally. 
       __APP_CONFIG__: JSON.stringify(appConfig),
       
-      // Safety: Prevent process.env crashes in browser
-      'process.env': {}
+      // Essential: Ensure process.env.API_KEY is available for the Gemini SDK
+      'process.env.API_KEY': JSON.stringify(googleKey),
+      
+      // Safety: Prevent process.env crashes in browser while keeping the API_KEY accessible
+      'process.env': {
+        API_KEY: googleKey
+      }
     },
   };
 });
