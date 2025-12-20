@@ -74,15 +74,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (profileError) {
         console.error("Profile Fetch Error:", profileError);
-        if (profileError.message.includes("500") || profileError.message.includes("Internal Server Error")) {
-          setDbError("De database herstart momenteel. Wacht even 10 seconden.");
+        if (profileError.message.includes("500") || profileError.message.includes("Internal")) {
+          setDbError("De database is gecrasht (500). Verwijder alle oude SQL queries in Supabase.");
           setLoading(false);
           return;
-        }
-        if (profileError.message.includes("does not exist")) {
-           setDbError("Database tabellen ontbreken nog.");
-           setLoading(false);
-           return;
         }
       }
 
@@ -90,15 +85,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // 2. Auto-create Profile if missing
       if (!currentProfile) {
-        const { data: newProfile, error: insertError } = await supabase.from('profiles').insert({
+        const { data: newProfile, error: insertError } = await supabase.from('profiles').upsert({
           id: userId,
           email: currentUser.email,
           full_name: currentUser.user_metadata?.full_name || 'Nieuwe Gebruiker'
         }).select().maybeSingle();
         
         if (insertError) {
-          console.error("Profile Insert Error:", insertError);
-          setDbError("Kan profiel nog niet opslaan. Is de SQL gerund?");
+          console.error("Profile Upsert Error:", insertError);
+          setDbError("Kan profiel nog niet aanmaken. Run de 'Deep Clean' SQL.");
           setLoading(false);
           return;
         }
@@ -114,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (memberError && memberError.message.includes("500")) {
-        setDbError("De tabellen zijn nog niet actief in de API. Wacht even...");
+        setDbError("API fout 500 bij ophalen huishouden. Ververs de pagina.");
         setLoading(false);
         return;
       }
@@ -140,7 +135,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             memberData = newMember;
           } else if (tErr) {
             console.error("Tenant Error:", tErr);
-            setDbError("Fout bij aanmaken huishouden. Is de SQL correct?");
           }
         } else if (pendingRole === 'sub_user' && pendingCode) {
           const { data: targetTenant } = await supabase.from('tenants').select('id').eq('id', pendingCode).maybeSingle();

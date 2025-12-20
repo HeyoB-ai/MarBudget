@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { ReceiptScanner } from './components/ReceiptScanner';
 import { BudgetOverview } from './components/BudgetOverview';
@@ -6,8 +5,7 @@ import { BudgetSettings } from './components/BudgetSettings';
 import { Expense } from './types';
 import { INITIAL_BUDGETS } from './constants';
 import { postToGoogleSheet } from './services/sheetService';
-// Added missing Terminal icon import from lucide-react
-import { Wallet, Settings, List, Trash2, ChevronLeft, ChevronRight, LogOut, Users, Loader2, ShieldCheck, AlertCircle, Database, Check, Copy, RefreshCcw, ExternalLink, Terminal } from 'lucide-react';
+import { Wallet, Settings, List, Trash2, ChevronLeft, ChevronRight, LogOut, Users, Loader2, ShieldCheck, AlertCircle, Database, Check, Copy, RefreshCcw, Terminal, Zap, Trash } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Auth } from './components/Auth';
 import { LegacySync } from './components/LegacySync';
@@ -166,7 +164,19 @@ const SetupScreen = () => {
   const [copied, setCopied] = useState(false);
   const [waiting, setWaiting] = useState(false);
 
-  const sqlFix = `-- 1. MAAK TABELLEN
+  // Dit script is agressief: het herstelt rechten en wist oude foutieve policies.
+  const sqlFix = `-- 1. RESET ALLES (WIST OUDE FOUTIEVE RECHTSREGELS)
+DO $$ 
+DECLARE t text;
+BEGIN 
+    FOR t IN (SELECT table_name FROM information_schema.tables WHERE table_schema = 'public') LOOP
+        EXECUTE format('DROP POLICY IF EXISTS "Allow All" ON public.%I;', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Public Full Access" ON public.%I;', t);
+        EXECUTE format('ALTER TABLE public.%I DISABLE ROW LEVEL SECURITY;', t);
+    END LOOP;
+END $$;
+
+-- 2. MAAK/UPDATE TABELLEN
 CREATE TABLE IF NOT EXISTS public.profiles (id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY, email TEXT, full_name TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS public.tenants (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, name TEXT NOT NULL, subscription_tier TEXT DEFAULT 'S', max_users INTEGER DEFAULT 5, sheet_url TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS public.tenant_members (tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE, user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE, role TEXT NOT NULL, PRIMARY KEY (tenant_id, user_id));
@@ -174,7 +184,8 @@ CREATE TABLE IF NOT EXISTS public.expenses (id UUID DEFAULT gen_random_uuid() PR
 CREATE TABLE IF NOT EXISTS public.budgets (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE, category TEXT NOT NULL, limit_amount DECIMAL(12,2) NOT NULL, UNIQUE(tenant_id, category));
 CREATE TABLE IF NOT EXISTS public.incomes (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE, amount DECIMAL(12,2) NOT NULL, UNIQUE(tenant_id));
 
--- 2. RESET CACHE & RECHTEN
+-- 3. HERSTEL RECHTEN (SIMPEL & VEILIG)
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 
@@ -183,11 +194,11 @@ DECLARE t text;
 BEGIN 
     FOR t IN (SELECT table_name FROM information_schema.tables WHERE table_schema = 'public') LOOP
         EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', t);
-        EXECUTE format('DROP POLICY IF EXISTS "Allow All" ON public.%I;', t);
-        EXECUTE format('CREATE POLICY "Allow All" ON public.%I FOR ALL USING (true) WITH CHECK (true);', t);
+        EXECUTE format('CREATE POLICY "Master Access" ON public.%I FOR ALL USING (true) WITH CHECK (true);', t);
     END LOOP;
 END $$;
 
+-- 4. FORCEER RELOAD VAN DE API
 NOTIFY pgrst, 'reload schema';`;
 
   const handleCopy = () => {
@@ -198,91 +209,92 @@ NOTIFY pgrst, 'reload schema';`;
 
   const handleComplete = async () => {
     setWaiting(true);
-    // Geforceerde pauze voor Supabase cache
+    // Geforceerde pauze voor Supabase
     setTimeout(async () => {
       await refreshUserData();
       setWaiting(false);
-    }, 2000);
+    }, 4000);
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans overflow-y-auto">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full border border-gray-100 relative my-8 overflow-hidden">
-        <div className="h-2 bg-gradient-to-r from-cyan-400 to-primary"></div>
+      <div className="bg-white rounded-[3rem] shadow-2xl max-w-2xl w-full border border-gray-100 relative my-8 overflow-hidden">
+        <div className="h-3 bg-red-500"></div>
         
-        <div className="p-8 sm:p-12">
-          <div className="flex flex-col items-center mb-10">
-            <div className="bg-cyan-50 text-primary w-16 h-16 rounded-2xl flex items-center justify-center mb-4 shadow-inner ring-4 ring-white"><Database size={32} /></div>
-            <h2 className="text-2xl font-black text-gray-800 tracking-tight">Database Inrichten</h2>
-            <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mt-1">Stap 2 van 2</p>
+        <div className="p-8 sm:p-12 text-center">
+          <div className="bg-red-50 text-red-500 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <Zap size={40} className="fill-current" />
           </div>
+          
+          <h2 className="text-3xl font-black text-gray-800 tracking-tight mb-2">Schoonmaak Nodig</h2>
+          <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mb-10">De database is geblokkeerd</p>
 
-          <div className="space-y-6">
-            <section className="flex gap-4">
-              <div className="bg-primary text-white w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shadow-lg flex-shrink-0">1</div>
+          <div className="text-left space-y-8 mb-12">
+            <section className="flex gap-5 items-start">
+              <div className="bg-gray-800 text-white w-10 h-10 rounded-xl flex items-center justify-center font-black flex-shrink-0">1</div>
               <div>
-                <h3 className="font-bold text-gray-800 text-sm mb-1">Open Supabase SQL Editor</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">Ga naar je dashboard, klik links op de <Terminal size={12} className="inline mx-1" /> <b>SQL Editor</b> en maak een <b>New Query</b>.</p>
+                <h3 className="font-bold text-gray-800 mb-1">Wis alles in Supabase</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">Ga naar de SQL Editor, selecteer alle tekst die daar nog staat en <b>verwijder deze</b>. We hebben een schone lei nodig.</p>
               </div>
             </section>
 
-            <section className="flex gap-4">
-              <div className="bg-primary text-white w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shadow-lg flex-shrink-0">2</div>
+            <section className="flex gap-5 items-start">
+              <div className="bg-gray-800 text-white w-10 h-10 rounded-xl flex items-center justify-center font-black flex-shrink-0">2</div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-gray-800 text-sm mb-2">Kopieer & Plak de Code</h3>
-                <div className="relative group">
-                  <div className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 shadow-2xl">
-                    <div className="flex items-center justify-between px-4 py-2 bg-gray-800/50 border-b border-gray-700">
-                      <span className="text-[10px] text-gray-500 font-mono font-bold uppercase tracking-widest">marbudget_setup.sql</span>
-                      <button 
-                        onClick={handleCopy}
-                        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${copied ? 'bg-green-500 text-white' : 'bg-primary text-white hover:scale-105 active:scale-95'}`}
-                      >
-                        {copied ? <Check size={12} /> : <Copy size={12} />}
-                        {copied ? 'Gekopieerd!' : 'Kopieer'}
-                      </button>
+                <h3 className="font-bold text-gray-800 mb-2">Plak de Nieuwe Code</h3>
+                <div className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 shadow-xl">
+                  <div className="flex items-center justify-between px-5 py-3 bg-gray-800/50">
+                    <div className="flex items-center gap-2">
+                      <Terminal size={12} className="text-cyan-400" />
+                      <span className="text-[10px] text-gray-400 font-mono font-bold uppercase">deep_clean.sql</span>
                     </div>
-                    <pre className="p-5 text-[10px] font-mono text-cyan-400 overflow-x-auto max-h-48 scrollbar-thin scrollbar-thumb-gray-700 leading-relaxed whitespace-pre-wrap">
-                      {sqlFix}
-                    </pre>
+                    <button 
+                      onClick={handleCopy}
+                      className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${copied ? 'bg-green-500 text-white' : 'bg-primary text-white hover:scale-105'}`}
+                    >
+                      {copied ? <Check size={12} /> : <Copy size={12} />}
+                      {copied ? 'Gekopieerd' : 'Kopieer SQL'}
+                    </button>
                   </div>
+                  <pre className="p-5 text-[10px] font-mono text-cyan-400 overflow-x-auto max-h-40 opacity-80 leading-relaxed">
+                    {sqlFix}
+                  </pre>
                 </div>
               </div>
             </section>
 
-            <section className="flex gap-4">
-              <div className="bg-primary text-white w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shadow-lg flex-shrink-0">3</div>
+            <section className="flex gap-5 items-start">
+              <div className="bg-gray-800 text-white w-10 h-10 rounded-xl flex items-center justify-center font-black flex-shrink-0">3</div>
               <div>
-                <h3 className="font-bold text-gray-800 text-sm mb-1">Druk op Run</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">Klik op de blauwe <b>Run</b> knop in Supabase. Wacht daarna 5-10 seconden voordat je verder gaat.</p>
+                <h3 className="font-bold text-gray-800 mb-1">Druk op Run</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">Klik op <b>Run</b>. Wacht tot je "Success" ziet onderaan in Supabase. Kom dan hier terug.</p>
               </div>
             </section>
           </div>
 
-          <div className="mt-12 space-y-4">
+          <div className="space-y-4">
             <button 
               onClick={handleComplete}
               disabled={waiting}
-              className="w-full bg-primary text-white py-5 rounded-2xl font-black text-base shadow-2xl shadow-primary/30 hover:bg-secondary active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+              className="w-full bg-primary text-white py-5 rounded-[1.5rem] font-black text-lg shadow-2xl shadow-primary/30 hover:bg-secondary active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
             >
               {waiting ? (
-                <><Loader2 className="animate-spin mr-3" /> Even geduld...</>
+                <><Loader2 className="animate-spin mr-3" /> API Herstarten...</>
               ) : (
-                <><RefreshCcw size={20} className="mr-3" /> Ik heb de SQL uitgevoerd</>
+                <><RefreshCcw size={22} className="mr-3" /> Ik heb de SQL uitgevoerd</>
               )}
             </button>
-            <button onClick={signOut} className="w-full text-xs text-gray-400 font-bold uppercase tracking-widest py-2 hover:text-red-500 transition-colors">Log uit en begin opnieuw</button>
+            <button onClick={signOut} className="w-full text-xs text-gray-300 font-bold uppercase tracking-widest py-2 hover:text-red-500 transition-colors">Log uit en begin opnieuw</button>
           </div>
 
           {dbError && (
-            <div className="mt-8 p-5 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-4 animate-fade-in ring-1 ring-amber-200 shadow-sm">
-              <AlertCircle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[11px] text-amber-700 font-black uppercase mb-1 tracking-tight">Belangrijke melding</p>
-                <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
-                  De database meldt: <b>"{dbError}"</b>. <br/>
-                  Dit komt meestal doordat Supabase de nieuwe tabellen nog niet heeft "gezien". <br/>
-                  <b>Tip:</b> Wacht 10 seconden en probeer de knop nogmaals.
+            <div className="mt-8 p-6 bg-amber-50 border border-amber-200 rounded-[1.5rem] flex items-start gap-4 animate-fade-in shadow-sm">
+              <AlertCircle size={24} className="text-amber-500 flex-shrink-0 mt-1" />
+              <div className="text-left">
+                <p className="text-[11px] text-amber-700 font-black uppercase mb-1 tracking-tight">Database Melding (500)</p>
+                <p className="text-xs text-amber-800 leading-relaxed font-medium">
+                  De database reageert nog niet correct. Dit komt door de oude queries. <br/>
+                  <b>Oplossing:</b> Open een nieuw tabblad in Supabase SQL Editor, plak de code daar en run deze. Ververs daarna deze pagina (F5).
                 </p>
               </div>
             </div>
@@ -295,7 +307,7 @@ NOTIFY pgrst, 'reload schema';`;
 
 const AppContent = () => {
   const { session, loading, tenant } = useAuth();
-  if (loading) return <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-primary w-10 h-10 mb-4" /><span className="text-xs font-bold uppercase tracking-widest text-gray-400 tracking-widest">Beveiligde verbinding laden...</span></div>;
+  if (loading) return <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-primary w-10 h-10 mb-4" /><span className="text-xs font-bold uppercase tracking-widest text-gray-400 tracking-widest">Database verbinden...</span></div>;
   if (!session) return <Auth />;
   if (!tenant) return <SetupScreen />;
   return <Dashboard />;
