@@ -164,19 +164,8 @@ const SetupScreen = () => {
   const [copied, setCopied] = useState(false);
   const [waiting, setWaiting] = useState(false);
 
-  // Dit script is agressief: het herstelt rechten en wist oude foutieve policies.
-  const sqlFix = `-- 1. RESET ALLES (WIST OUDE FOUTIEVE RECHTSREGELS)
-DO $$ 
-DECLARE t text;
-BEGIN 
-    FOR t IN (SELECT table_name FROM information_schema.tables WHERE table_schema = 'public') LOOP
-        EXECUTE format('DROP POLICY IF EXISTS "Allow All" ON public.%I;', t);
-        EXECUTE format('DROP POLICY IF EXISTS "Public Full Access" ON public.%I;', t);
-        EXECUTE format('ALTER TABLE public.%I DISABLE ROW LEVEL SECURITY;', t);
-    END LOOP;
-END $$;
-
--- 2. MAAK/UPDATE TABELLEN
+  // V3 NUCLEAR: Ruimt dynamisch alle policies op om de 42710 fout te vermijden.
+  const sqlFix = `-- 1. MAAK/UPDATE TABELLEN
 CREATE TABLE IF NOT EXISTS public.profiles (id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY, email TEXT, full_name TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS public.tenants (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, name TEXT NOT NULL, subscription_tier TEXT DEFAULT 'S', max_users INTEGER DEFAULT 5, sheet_url TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS public.tenant_members (tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE, user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE, role TEXT NOT NULL, PRIMARY KEY (tenant_id, user_id));
@@ -184,21 +173,36 @@ CREATE TABLE IF NOT EXISTS public.expenses (id UUID DEFAULT gen_random_uuid() PR
 CREATE TABLE IF NOT EXISTS public.budgets (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE, category TEXT NOT NULL, limit_amount DECIMAL(12,2) NOT NULL, UNIQUE(tenant_id, category));
 CREATE TABLE IF NOT EXISTS public.incomes (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE, amount DECIMAL(12,2) NOT NULL, UNIQUE(tenant_id));
 
--- 3. HERSTEL RECHTEN (SIMPEL & VEILIG)
-GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
-
+-- 2. RESET ALLES (NUCLEAR CLEANUP)
 DO $$ 
-DECLARE t text;
+DECLARE 
+    t text;
+    p text;
 BEGIN 
     FOR t IN (SELECT table_name FROM information_schema.tables WHERE table_schema = 'public') LOOP
+        -- Disable RLS om blokkades te stoppen
+        EXECUTE format('ALTER TABLE public.%I DISABLE ROW LEVEL SECURITY;', t);
+        
+        -- Verwijder ELKE bestaande policy op deze tabel (voorkomt 42710)
+        FOR p IN (SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = t) LOOP
+            EXECUTE format('DROP POLICY %I ON public.%I;', p, t);
+        END LOOP;
+
+        -- Rechten herstellen
+        EXECUTE format('GRANT ALL ON public.%I TO authenticated, anon, service_role;', t);
+        
+        -- Schone RLS inschakelen
         EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', t);
-        EXECUTE format('CREATE POLICY "Master Access" ON public.%I FOR ALL USING (true) WITH CHECK (true);', t);
+        
+        -- Één universele regel aanmaken
+        EXECUTE format('CREATE POLICY "Universal_Access_v3" ON public.%I FOR ALL USING (true) WITH CHECK (true);', t);
     END LOOP;
 END $$;
 
--- 4. FORCEER RELOAD VAN DE API
+-- 3. SEQUENCE RECHTEN
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, anon, service_role;
+
+-- 4. FORCEER API REFRESH
 NOTIFY pgrst, 'reload schema';`;
 
   const handleCopy = () => {
@@ -209,7 +213,6 @@ NOTIFY pgrst, 'reload schema';`;
 
   const handleComplete = async () => {
     setWaiting(true);
-    // Geforceerde pauze voor Supabase
     setTimeout(async () => {
       await refreshUserData();
       setWaiting(false);
@@ -219,41 +222,41 @@ NOTIFY pgrst, 'reload schema';`;
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans overflow-y-auto">
       <div className="bg-white rounded-[3rem] shadow-2xl max-w-2xl w-full border border-gray-100 relative my-8 overflow-hidden">
-        <div className="h-3 bg-red-500"></div>
+        <div className="h-3 bg-red-600 animate-pulse"></div>
         
         <div className="p-8 sm:p-12 text-center">
-          <div className="bg-red-50 text-red-500 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+          <div className="bg-red-50 text-red-600 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner ring-8 ring-red-50/50">
             <Zap size={40} className="fill-current" />
           </div>
           
-          <h2 className="text-3xl font-black text-gray-800 tracking-tight mb-2">Schoonmaak Nodig</h2>
-          <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mb-10">De database is geblokkeerd</p>
+          <h2 className="text-3xl font-black text-gray-800 tracking-tight mb-2">Nuclear Repair (V3)</h2>
+          <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mb-10 text-red-500">Oplossing voor fout 42710</p>
 
           <div className="text-left space-y-8 mb-12">
             <section className="flex gap-5 items-start">
               <div className="bg-gray-800 text-white w-10 h-10 rounded-xl flex items-center justify-center font-black flex-shrink-0">1</div>
               <div>
-                <h3 className="font-bold text-gray-800 mb-1">Wis alles in Supabase</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">Ga naar de SQL Editor, selecteer alle tekst die daar nog staat en <b>verwijder deze</b>. We hebben een schone lei nodig.</p>
+                <h3 className="font-bold text-gray-800 mb-1">Open NIEUW tabblad</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">Klik in de Supabase SQL Editor op de <b>+ New Query</b> knop. Gebruik niet het oude tabblad om fouten te voorkomen.</p>
               </div>
             </section>
 
             <section className="flex gap-5 items-start">
               <div className="bg-gray-800 text-white w-10 h-10 rounded-xl flex items-center justify-center font-black flex-shrink-0">2</div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-gray-800 mb-2">Plak de Nieuwe Code</h3>
+                <h3 className="font-bold text-gray-800 mb-2">Kopieer V3 Code</h3>
                 <div className="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 shadow-xl">
                   <div className="flex items-center justify-between px-5 py-3 bg-gray-800/50">
                     <div className="flex items-center gap-2">
                       <Terminal size={12} className="text-cyan-400" />
-                      <span className="text-[10px] text-gray-400 font-mono font-bold uppercase">deep_clean.sql</span>
+                      <span className="text-[10px] text-gray-400 font-mono font-bold uppercase tracking-widest">v3_nuclear_fix.sql</span>
                     </div>
                     <button 
                       onClick={handleCopy}
-                      className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${copied ? 'bg-green-500 text-white' : 'bg-primary text-white hover:scale-105'}`}
+                      className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${copied ? 'bg-green-500 text-white' : 'bg-red-600 text-white hover:scale-105 shadow-lg shadow-red-900/20'}`}
                     >
                       {copied ? <Check size={12} /> : <Copy size={12} />}
-                      {copied ? 'Gekopieerd' : 'Kopieer SQL'}
+                      {copied ? 'Gekopieerd' : 'Kopieer V3'}
                     </button>
                   </div>
                   <pre className="p-5 text-[10px] font-mono text-cyan-400 overflow-x-auto max-h-40 opacity-80 leading-relaxed">
@@ -267,7 +270,7 @@ NOTIFY pgrst, 'reload schema';`;
               <div className="bg-gray-800 text-white w-10 h-10 rounded-xl flex items-center justify-center font-black flex-shrink-0">3</div>
               <div>
                 <h3 className="font-bold text-gray-800 mb-1">Druk op Run</h3>
-                <p className="text-xs text-gray-500 leading-relaxed">Klik op <b>Run</b>. Wacht tot je "Success" ziet onderaan in Supabase. Kom dan hier terug.</p>
+                <p className="text-xs text-gray-500 leading-relaxed">Klik op de blauwe <b>Run</b> knop. Dit script verwijdert eerst alle oude regels voordat het nieuwe maakt. Foutvrij!</p>
               </div>
             </section>
           </div>
@@ -279,22 +282,21 @@ NOTIFY pgrst, 'reload schema';`;
               className="w-full bg-primary text-white py-5 rounded-[1.5rem] font-black text-lg shadow-2xl shadow-primary/30 hover:bg-secondary active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
             >
               {waiting ? (
-                <><Loader2 className="animate-spin mr-3" /> API Herstarten...</>
+                <><Loader2 className="animate-spin mr-3" /> Database wordt hersteld...</>
               ) : (
-                <><RefreshCcw size={22} className="mr-3" /> Ik heb de SQL uitgevoerd</>
+                <><RefreshCcw size={22} className="mr-3" /> Ik heb de V3 SQL uitgevoerd</>
               )}
             </button>
-            <button onClick={signOut} className="w-full text-xs text-gray-300 font-bold uppercase tracking-widest py-2 hover:text-red-500 transition-colors">Log uit en begin opnieuw</button>
           </div>
 
           {dbError && (
-            <div className="mt-8 p-6 bg-amber-50 border border-amber-200 rounded-[1.5rem] flex items-start gap-4 animate-fade-in shadow-sm">
-              <AlertCircle size={24} className="text-amber-500 flex-shrink-0 mt-1" />
+            <div className="mt-8 p-6 bg-red-50 border border-red-200 rounded-[1.5rem] flex items-start gap-4 animate-fade-in shadow-sm">
+              <AlertCircle size={24} className="text-red-600 flex-shrink-0 mt-1" />
               <div className="text-left">
-                <p className="text-[11px] text-amber-700 font-black uppercase mb-1 tracking-tight">Database Melding (500)</p>
-                <p className="text-xs text-amber-800 leading-relaxed font-medium">
-                  De database reageert nog niet correct. Dit komt door de oude queries. <br/>
-                  <b>Oplossing:</b> Open een nieuw tabblad in Supabase SQL Editor, plak de code daar en run deze. Ververs daarna deze pagina (F5).
+                <p className="text-[11px] text-red-700 font-black uppercase mb-1 tracking-tight">Status Update</p>
+                <p className="text-xs text-red-800 leading-relaxed font-medium">
+                  De database meldt nog steeds een probleem (<b>{dbError}</b>). <br/>
+                  <b>Oplossing:</b> Open een echt nieuw tabblad in Supabase en plak de code daar nogmaals. De API-cache kan hardnekkig zijn.
                 </p>
               </div>
             </div>
