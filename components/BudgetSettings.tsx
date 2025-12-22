@@ -238,11 +238,16 @@ function doPost(e) {
                     <div className="flex-1">
                       <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">De Juiste URL vinden</p>
                       <p className="text-[10px] text-gray-500 leading-relaxed">
-                        Klik in Google op <span className="bg-blue-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">Deploy</span> &rarr; "New Deployment" &rarr; Kies <strong>Web App</strong>.
+                        Klik in Google op <span className="bg-blue-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">Deploy</span> &rarr; "Nieuwe Implementatie" &rarr; Kies <strong>Web App</strong>.
                       </p>
-                      <div className="mt-3 bg-amber-50 p-3 rounded-xl border border-amber-100 text-[10px] font-bold text-amber-800">
-                        <AlertCircle size={14} className="mb-1" />
-                        Cruciaal: Zet "Who has access" op <strong>Anyone</strong> (Iedereen).
+                      <div className="mt-3 bg-amber-50 p-3 rounded-xl border border-amber-200 text-[10px] font-bold text-amber-800 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                          <span>Cruciaal: Zet "Wie heeft toegang" op <strong>Iedereen</strong> (Anyone).</span>
+                        </div>
+                        <div className="pl-6 text-[9px] text-amber-700 leading-tight">
+                          Selecteer <strong>NIET</strong> "Mijzelf" (Me). De instelling voor 'gebruiker die het web bezoekt' moet echt op <strong>Iedereen</strong> staan voor een werkende verbinding.
+                        </div>
                       </div>
                     </div>
                   </div>
