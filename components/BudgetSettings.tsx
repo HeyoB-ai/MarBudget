@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { formatCurrency } from '../constants';
-import { Save, Plus, AlertTriangle, Trash2, Sheet, UploadCloud, Copy, Check, ChevronDown, ChevronUp, X, ExternalLink, FileSpreadsheet, Info, MousePointer2, Play } from 'lucide-react';
+import { Save, Plus, AlertTriangle, Trash2, Sheet, UploadCloud, Copy, Check, ChevronDown, ChevronUp, X, ExternalLink, FileSpreadsheet, Info, MousePointer2 } from 'lucide-react';
 import { Expense } from '../types';
 import { postToGoogleSheet } from '../services/sheetService';
 
@@ -221,7 +221,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
                       </p>
                       <div className="mt-2 bg-blue-50 p-2 rounded-lg border border-blue-100 text-[9px] font-bold text-blue-700 flex items-start">
                         <MousePointer2 size={12} className="mr-2 mt-0.5" />
-                        <span>Kies "Nieuwe Implementatie" -> "Web App" -> Toegang: "Iedereen"</span>
+                        <span>Kies "Nieuwe Implementatie" &rarr; "Web App" &rarr; Toegang: "Iedereen"</span>
                       </div>
                     </div>
                   </div>
