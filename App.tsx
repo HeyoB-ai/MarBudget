@@ -3,16 +3,16 @@ import { ReceiptScanner } from './components/ReceiptScanner';
 import { BudgetOverview } from './components/BudgetOverview';
 import { BudgetSettings } from './components/BudgetSettings';
 import { Expense } from './types';
-import { INITIAL_BUDGETS } from './constants';
+import { INITIAL_BUDGETS, formatCurrency } from './constants';
 import { postToGoogleSheet } from './services/sheetService';
-import { Wallet, Settings, List, Trash2, ChevronLeft, ChevronRight, LogOut, Users, Loader2, CloudOff, Cloud, ShieldCheck } from 'lucide-react';
+import { Wallet, Settings, List, Trash2, ChevronLeft, ChevronRight, LogOut, Users, Loader2, Cloud, ShieldCheck, Share, CheckCircle2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Auth } from './components/Auth';
 import { AdminDashboard } from './components/AdminDashboard';
 import { supabase } from './lib/supabaseClient';
 
 const Dashboard = () => {
-  const { user, tenant, signOut, isCloudReady, role } = useAuth();
+  const { user, profile, tenant, signOut, isCloudReady, role } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [budgets, setBudgets] = useState<Record<string, number>>({});
   const [income, setIncome] = useState<number>(0);
@@ -21,13 +21,14 @@ const Dashboard = () => {
   const [loadingData, setLoadingData] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'expenses'>('dashboard');
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [isSyncingBulk, setIsSyncingBulk] = useState(false);
+  const [syncSuccess, setSyncSuccess] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!isCloudReady || !tenant || !user) return;
 
     setLoadingData(true);
     try {
-      // 1. Budgetten ophalen
       const { data: bData } = await supabase.from('budgets').select('category, limit_amount').eq('tenant_id', tenant.id);
       if (bData && bData.length > 0) {
         const bMap: Record<string, number> = {};
@@ -37,11 +38,9 @@ const Dashboard = () => {
         setBudgets(INITIAL_BUDGETS);
       }
 
-      // 2. Inkomen ophalen
       const { data: iData } = await supabase.from('incomes').select('amount').eq('tenant_id', tenant.id).maybeSingle();
       if (iData) setIncome(Number(iData.amount));
 
-      // 3. Uitgaven ophalen
       const { data: eData } = await supabase.from('expenses').select('*').eq('tenant_id', tenant.id).order('date', { ascending: false });
       if (eData) {
         const mapped = eData.map((e: any) => ({ ...e, amount: Number(e.amount), receiptImage: e.receipt_image }));
@@ -56,20 +55,76 @@ const Dashboard = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const calculateRemainingForCategory = (category: string, newAmount: number) => {
+    const limit = budgets[category] || 0;
+    const currentMonthExpenses = expenses.filter(e => {
+      const d = new Date(e.date);
+      return e.category === category && 
+             d.getMonth() === selectedMonth.getMonth() && 
+             d.getFullYear() === selectedMonth.getFullYear();
+    });
+    const spentAlready = currentMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
+    return limit - (spentAlready + newAmount);
+  };
+
   const addExpense = async (expense: Expense) => {
-    const safeExpense = { ...expense, amount: Number(expense.amount) };
-    const newExpenses = [safeExpense, ...expenses];
-    setExpenses(newExpenses);
+    const remaining = calculateRemainingForCategory(expense.category, expense.amount);
+    const safeExpense = { 
+      ...expense, 
+      amount: Number(expense.amount),
+      remaining_budget: remaining,
+      user_name: profile?.full_name || 'Onbekend'
+    };
+    
+    setExpenses(prev => [safeExpense, ...prev]);
 
     if (isCloudReady && tenant && user) {
       try {
         await supabase.from('expenses').insert({
-          tenant_id: tenant.id, user_id: user.id, amount: safeExpense.amount,
-          description: safeExpense.description, category: safeExpense.category,
-          date: safeExpense.date, receipt_image: safeExpense.receiptImage
+          tenant_id: tenant.id, 
+          user_id: user.id, 
+          amount: safeExpense.amount,
+          description: safeExpense.description, 
+          category: safeExpense.category,
+          date: safeExpense.date, 
+          receipt_image: safeExpense.receiptImage
         });
-        if (tenant.sheet_url) postToGoogleSheet(tenant.sheet_url, safeExpense);
-      } catch (err) { console.error("Cloud opslag mislukt."); }
+        
+        // Immediate sync to sheet if URL is present
+        if (tenant.sheet_url) {
+          postToGoogleSheet(tenant.sheet_url, safeExpense);
+        }
+      } catch (err) { 
+        console.error("Cloud opslag mislukt."); 
+      }
+    }
+  };
+
+  const monthLabel = selectedMonth.toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' });
+  const currentMonthExpenses = expenses.filter(e => {
+    const d = new Date(e.date);
+    return d.getMonth() === selectedMonth.getMonth() && d.getFullYear() === selectedMonth.getFullYear();
+  });
+
+  const bulkSyncMonth = async () => {
+    if (!tenant?.sheet_url || currentMonthExpenses.length === 0) return;
+    
+    setIsSyncingBulk(true);
+    try {
+      // Add meta info for sheets to each expense
+      const enrichedExpenses = currentMonthExpenses.map(e => ({
+        ...e,
+        user_name: profile?.full_name || 'Onbekend',
+        remaining_budget: calculateRemainingForCategory(e.category, 0) // Approximation for bulk
+      }));
+      
+      const success = await postToGoogleSheet(tenant.sheet_url, enrichedExpenses);
+      if (success) {
+        setSyncSuccess(true);
+        setTimeout(() => setSyncSuccess(false), 3000);
+      }
+    } finally {
+      setIsSyncingBulk(false);
     }
   };
 
@@ -99,12 +154,6 @@ const Dashboard = () => {
     }
   };
 
-  const monthLabel = selectedMonth.toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' });
-  const currentMonthExpenses = expenses.filter(e => {
-    const d = new Date(e.date);
-    return d.getMonth() === selectedMonth.getMonth() && d.getFullYear() === selectedMonth.getFullYear();
-  });
-
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 pb-20 font-sans animate-fade-in">
       <header className="bg-white shadow-sm sticky top-0 z-10 border-b border-gray-100">
@@ -123,7 +172,7 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => setShowAdmin(true)} className="p-2.5 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all" title="Team/Huishouden"><Users size={20} /></button>
+            <button onClick={() => setShowAdmin(true)} className="p-2.5 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all" title="Coach Overview"><Users size={20} /></button>
             <button onClick={() => setShowSettings(true)} className="p-2.5 text-gray-500 hover:bg-gray-50 rounded-2xl transition-all" title="Instellingen"><Settings size={20} /></button>
             <div className="w-px h-6 bg-gray-100 mx-2"></div>
             <button onClick={signOut} className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"><LogOut size={20} /></button>
@@ -150,29 +199,58 @@ const Dashboard = () => {
               currentMonth={selectedMonth}
               existingExpenses={expenses}
             />
-            {loadingData ? <div className="py-20 text-center text-gray-400 flex flex-col items-center"><Loader2 className="animate-spin mb-3 w-8 h-8 opacity-20" /><span className="text-xs font-bold uppercase tracking-widest">Data ophalen...</span></div> : <BudgetOverview expenses={currentMonthExpenses} budgets={budgets} income={income} currentMonth={selectedMonth} />}
+            {loadingData ? (
+              <div className="py-20 text-center text-gray-400 flex flex-col items-center">
+                <Loader2 className="animate-spin mb-3 w-8 h-8 opacity-20" />
+                <span className="text-xs font-bold uppercase tracking-widest">Data ophalen...</span>
+              </div>
+            ) : (
+              <BudgetOverview expenses={currentMonthExpenses} budgets={budgets} income={income} currentMonth={selectedMonth} />
+            )}
           </div>
         ) : (
           <div className="space-y-4 animate-fade-in">
+            {currentMonthExpenses.length > 0 && tenant?.sheet_url && (
+              <div className="mb-6">
+                <button 
+                  onClick={bulkSyncMonth}
+                  disabled={isSyncingBulk}
+                  className={`w-full py-5 rounded-[2.5rem] flex items-center justify-center font-black uppercase text-[10px] tracking-widest transition-all shadow-xl active:scale-95 ${syncSuccess ? 'bg-green-500 text-white' : 'bg-gray-800 text-white hover:bg-black'}`}
+                >
+                  {isSyncingBulk ? <Loader2 className="w-5 h-5 mr-3 animate-spin" /> : syncSuccess ? <CheckCircle2 className="w-5 h-5 mr-3" /> : <Share className="w-5 h-5 mr-3" />}
+                  {isSyncingBulk ? 'Exporteren...' : syncSuccess ? 'Maand Geëxporteerd!' : `Exporteer ${currentMonthExpenses.length} bonnen naar Sheets`}
+                </button>
+                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest text-center mt-3">Dit stuurt alle bonnen van {monthLabel} naar je spreadsheet</p>
+              </div>
+            )}
+
             {currentMonthExpenses.length === 0 ? (
-              <div className="text-center py-24 bg-white rounded-[3rem] border-dashed border-2 border-gray-100 flex flex-col items-center">
-                <div className="bg-gray-50 p-6 rounded-full mb-4 text-gray-200"><List size={40} /></div>
-                <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Nog geen bonnetjes deze maand</p>
+              <div className="text-center py-24 bg-white rounded-[3.5rem] border-dashed border-2 border-gray-100 flex flex-col items-center">
+                <div className="bg-gray-50 p-8 rounded-full mb-6 text-gray-200"><List size={48} /></div>
+                <p className="text-gray-400 font-bold uppercase text-xs tracking-widest">Nog geen bonnetjes deze maand</p>
               </div>
             ) : currentMonthExpenses.map(e => (
-              <div key={e.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-50 flex justify-between items-center group hover:shadow-md transition-all">
+              <div key={e.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-50 flex justify-between items-center group hover:shadow-md transition-all">
                 <div className="flex gap-4 items-center">
-                  <div className="w-14 h-14 rounded-2xl bg-gray-50 overflow-hidden flex items-center justify-center text-primary group-hover:scale-105 transition-transform border border-gray-100">
-                    {e.receiptImage ? <img src={e.receiptImage} className="w-full h-full object-cover" /> : <List size={22} className="opacity-30" />}
+                  <div className="w-16 h-16 rounded-3xl bg-gray-50 overflow-hidden flex items-center justify-center text-primary group-hover:scale-105 transition-transform border border-gray-100">
+                    {e.receiptImage ? <img src={e.receiptImage} className="w-full h-full object-cover" /> : <List size={24} className="opacity-20" />}
                   </div>
                   <div>
                     <h4 className="font-bold text-gray-800 leading-tight">{e.description}</h4>
-                    <span className="text-[9px] font-black text-primary/50 uppercase tracking-widest block mt-0.5">{e.category}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest">{e.category}</span>
+                      {e.user_name && (
+                        <>
+                          <span className="w-1 h-1 bg-gray-200 rounded-full"></span>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{e.user_name}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="font-black text-gray-800 text-lg">€{e.amount.toFixed(2).replace('.', ',')}</span>
-                  <button onClick={() => removeExpense(e.id)} className="text-gray-200 hover:text-red-500 mt-1.5 transition-colors p-1"><Trash2 size={16} /></button>
+                  <span className="font-black text-gray-800 text-xl">{formatCurrency(e.amount)}</span>
+                  <button onClick={() => removeExpense(e.id)} className="text-gray-200 hover:text-red-500 mt-2 transition-colors p-1.5"><Trash2 size={18} /></button>
                 </div>
               </div>
             ))}

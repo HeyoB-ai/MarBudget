@@ -19,6 +19,9 @@ export interface Expense {
   description: string;
   receiptImage?: string; 
   created_at?: string;
+  // Extra fields for rich export to sheets
+  remaining_budget?: number;
+  user_name?: string;
 }
 
 export interface Budget {

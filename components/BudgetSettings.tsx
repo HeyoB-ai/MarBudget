@@ -103,13 +103,15 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     setTestStatus('testing');
     setShowTroubleshooting(false);
     
-    // Test data sturen
+    // Test signal with enriched data
     const success = await postToGoogleSheet(localSheetUrl, {
       id: 'test',
       amount: 0,
       date: new Date().toISOString().split('T')[0],
-      category: 'Test',
-      description: 'Verbindingstest vanuit MarBudget'
+      category: 'Verbindingstest',
+      description: 'Signaal vanuit MarBudget App',
+      user_name: 'Systeem Test',
+      remaining_budget: 100
     } as any);
 
     if (success) {
@@ -121,13 +123,17 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     }
   };
 
-  const scriptCode = `// --- MARBUDGET GOOGLE SHEETS SCRIPT ---
+  const scriptCode = `// --- MARBUDGET GOOGLE SHEETS SCRIPT v2 ---
 
 function testVerbinding() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheets()[0];
-  sheet.appendRow([new Date(), "TEST (HANDMATIG)", "Test", 0, "2024-01-01", "Nee"]);
-  Logger.log("Succes! Er is een test-regel toegevoegd aan je spreadsheet.");
+  // Voeg kopteksten toe als de sheet leeg is
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["Scan Datum", "Winkel/Omschr", "Categorie", "Bedrag (€)", "Bon Datum", "Gebruiker", "Budget Resterend (€)"]);
+  }
+  sheet.appendRow([new Date(), "TEST HANDMATIG", "Test", 0, "2024-01-01", "Systeem", 0]);
+  Logger.log("Test-regel toegevoegd!");
 }
 
 function doPost(e) {
@@ -135,12 +141,17 @@ function doPost(e) {
   var sheet = ss.getSheets()[0];
   
   if (!e || !e.postData) {
-    return ContentService.createTextOutput("Fout: Geen data ontvangen.").setMimeType(ContentService.MimeType.TEXT);
+    return ContentService.createTextOutput("Fout: Geen data").setMimeType(ContentService.MimeType.TEXT);
   }
 
   var data = JSON.parse(e.postData.contents);
   var items = Array.isArray(data) ? data : [data];
   
+  // Headers toevoegen indien leeg
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["Scan Datum", "Winkel/Omschr", "Categorie", "Bedrag (€)", "Bon Datum", "Gebruiker", "Budget Resterend (€)"]);
+  }
+
   items.forEach(function(item) {
     sheet.appendRow([
       new Date(), 
@@ -148,7 +159,8 @@ function doPost(e) {
       item.category || "Overig", 
       item.amount || 0, 
       item.date || "", 
-      item.receiptImage ? "Ja" : "Nee"
+      item.user_name || "Anoniem",
+      item.remaining_budget || 0
     ]);
   });
   
@@ -199,7 +211,7 @@ function doPost(e) {
             </div>
           </div>
 
-          {/* Google Sheets Sectie */}
+          {/* Google Sheets Section */}
           <div className="bg-blue-50/50 p-6 rounded-[2rem] border border-blue-100 space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center text-blue-700">
@@ -221,7 +233,7 @@ function doPost(e) {
                   <div className="flex gap-4">
                     <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">1</div>
                     <div className="flex-1">
-                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Code Kopiëren</p>
+                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Code Kopiëren (v2)</p>
                       <button 
                         onClick={copyScript}
                         className="w-full py-2 bg-gray-50 border border-gray-200 rounded-xl text-[10px] font-black text-gray-500 uppercase flex items-center justify-center hover:bg-white hover:border-blue-300 transition-all"
@@ -229,6 +241,7 @@ function doPost(e) {
                         {scriptCopied ? <Check size={14} className="text-green-500 mr-2" /> : <Copy size={14} className="mr-2" />}
                         {scriptCopied ? 'Gekopieerd!' : 'Kopieer Script Code'}
                       </button>
+                      <p className="text-[8px] text-gray-400 mt-2 italic">Deze nieuwe versie ondersteunt namen van cliënten en het resterende budget per categorie.</p>
                     </div>
                   </div>
 
@@ -240,20 +253,17 @@ function doPost(e) {
                         <div className="flex items-start gap-2">
                           <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-600" />
                           <span className="text-[10px] font-bold text-amber-800">
-                            "Who has access" MOET staan op <strong>"Anyone"</strong> (Iedereen).
+                            "Who has access" MOET staan op <strong>"Anyone"</strong>.
                           </span>
                         </div>
                         
                         <div className="pl-6 space-y-2">
                           <p className="text-[9px] text-amber-700 leading-tight">
-                            ❌ Kies <strong>NIET</strong> voor "Anyone with Google Account". Dat blokkeert de verbinding.
+                            ❌ Kies <strong>NIET</strong> voor "Anyone with Google Account" of "Me". Dat blokkeert de verbinding van de cliënten.
                           </p>
-                          <div className="p-2 bg-white/50 rounded-lg border border-amber-100">
-                            <p className="text-[9px] font-black text-amber-800 uppercase mb-1">Optie "Anyone" verdwenen?</p>
-                            <p className="text-[8px] text-amber-700 leading-relaxed italic">
-                              Gebruik je een zakelijk Google-account? De beheerder moet dan toestemming geven voor "Apps Script publiceren buiten het domein". Gebruik anders een privé Gmail-account voor de spreadsheet.
-                            </p>
-                          </div>
+                          <p className="text-[9px] text-amber-700 leading-tight">
+                            ℹ️ Als "Anyone" niet verschijnt, gebruik dan een privé Gmail-account in plaats van een zakelijk account.
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -298,38 +308,11 @@ function doPost(e) {
                   <div className="bg-green-50 border border-green-200 p-4 rounded-2xl animate-fade-in flex items-start gap-3">
                     <Check className="text-green-500 w-5 h-5 shrink-0" />
                     <p className="text-[10px] font-bold text-green-800 leading-tight">
-                      Signaal succesvol verzonden! Kijk nu in je Google Sheet tabblad of er een nieuwe regel (TEST) is verschenen.
+                      Signaal succesvol verzonden! Kijk nu in je Google Sheet of er een nieuwe regel is verschenen met de naam "Systeem Test".
                     </p>
                   </div>
                 )}
-
-                <button 
-                  onClick={() => setShowTroubleshooting(!showTroubleshooting)}
-                  className="w-full py-2 text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity"
-                >
-                  <HelpCircle size={14} className="mr-2" /> Hulp bij verbindingsproblemen
-                </button>
               </div>
-
-              {showTroubleshooting && (
-                <div className="bg-red-50 border border-red-100 p-5 rounded-[1.5rem] space-y-3 animate-fade-in">
-                  <h4 className="text-[10px] font-black text-red-800 uppercase tracking-widest">Probleem met "Anyone"?</h4>
-                  <ul className="text-[10px] text-red-700 font-bold space-y-2">
-                    <li className="flex gap-2">
-                      <span className="text-red-300">•</span>
-                      <span>Staat "Execute as" op <strong>Me</strong> (Mijzelf)? Dat is goed.</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-red-300">•</span>
-                      <span>Staat "Who has access" op <strong>Anyone</strong>? (Verplicht!).</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-red-300">•</span>
-                      <span>Als je alleen "Anyone with Google Account" ziet, blokkeert je bedrijf dit. Maak de sheet in een <strong>privé Gmail account</strong> aan om dit te omzeilen.</span>
-                    </li>
-                  </ul>
-                </div>
-              )}
             </div>
           </div>
 

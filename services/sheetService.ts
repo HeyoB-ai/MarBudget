@@ -7,13 +7,11 @@ export const postToGoogleSheet = async (url: string, data: Expense | Expense[]) 
   }
 
   try {
-    // Gebruik AbortController om een timeout in te stellen (vangen van extreem trage verbindingen)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // Longer timeout for bulk
 
-    // We gebruiken 'no-cors' omdat Google Apps Script redirects gebruikt die CORS errors geven in de browser.
-    // Met 'no-cors' is de response altijd 'opaque' (je ziet de inhoud niet, maar het verzoek wordt wel uitgevoerd).
-    await fetch(url, {
+    // Google Apps Script doPost requires data to be sent as string
+    const response = await fetch(url, {
       method: 'POST',
       mode: 'no-cors', 
       cache: 'no-cache',
@@ -25,13 +23,13 @@ export const postToGoogleSheet = async (url: string, data: Expense | Expense[]) 
     });
     
     clearTimeout(timeoutId);
-    console.log("Verzoek succesvol verzonden naar Google Script.");
+    console.log("Export naar Google Script voltooid.");
     return true;
   } catch (error: any) {
     if (error.name === 'AbortError') {
-      console.error("Netwerk timeout: Het duurde te lang om verbinding te maken met Google.");
+      console.error("Netwerk timeout bij Google Sheet export.");
     } else {
-      console.error("Kritieke fout bij verzenden naar Google Sheet. Check je URL of ad-blocker:", error);
+      console.error("Fout bij verzenden naar Google Sheet:", error);
     }
     return false;
   }
