@@ -41,8 +41,8 @@ export const Auth = () => {
           },
         });
 
+        // 1. Check op directe fout van de server
         if (signUpError) {
-          // Specifieke check voor reeds bestaande gebruikers
           if (signUpError.message.toLowerCase().includes('already registered') || 
               signUpError.message.toLowerCase().includes('already exists') ||
               signUpError.status === 400) {
@@ -51,16 +51,21 @@ export const Auth = () => {
           throw signUpError;
         }
 
+        // 2. Check op 'silent failure' (anti-enumeration security van Supabase)
+        // Als identities leeg is, bestaat de gebruiker al maar geeft Supabase geen error om privacy-redenen.
+        if (data.user && data.user.identities && data.user.identities.length === 0) {
+          throw new Error("Dit e-mailadres is al geregistreerd. Ga terug naar inloggen om verder te gaan.");
+        }
+
         if (data.user) {
-          // Bij sommige Supabase instellingen krijg je direct een sessie, bij andere moet je eerst mail bevestigen
           if (!data.session) {
             setSuccessInfo("Bevestigingsmail verstuurd naar " + cleanEmail + ". Klik op de link in de mail om je account te activeren.");
           }
         }
       }
     } catch (err: any) {
-      console.error("Auth Error:", err);
-      // Vertaal veelvoorkomende fouten naar vriendelijk Nederlands
+      console.error("Auth Error details:", err);
+      
       let friendlyMessage = err.message;
       if (err.message.includes('Invalid login credentials')) {
         friendlyMessage = "E-mailadres of wachtwoord onjuist.";
