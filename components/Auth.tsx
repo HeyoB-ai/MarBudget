@@ -17,17 +17,20 @@ export const Auth = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessInfo(null);
+
+    const cleanEmail = email.trim().toLowerCase();
 
     try {
       if (mode === 'login') {
         const { error: loginError } = await supabase.auth.signInWithPassword({ 
-          email: email.trim().toLowerCase(), 
+          email: cleanEmail, 
           password 
         });
         if (loginError) throw loginError;
       } else {
         const { data, error: signUpError } = await supabase.auth.signUp({
-          email: email.trim().toLowerCase(),
+          email: cleanEmail,
           password,
           options: { 
             data: { 
@@ -38,13 +41,34 @@ export const Auth = () => {
           },
         });
 
-        if (signUpError) throw signUpError;
-        if (data.user && !data.session) {
-          setSuccessInfo("Bevestigingsmail verstuurd naar " + email + ". Klik op de link in de mail om je account te activeren.");
+        if (signUpError) {
+          // Specifieke check voor reeds bestaande gebruikers
+          if (signUpError.message.toLowerCase().includes('already registered') || 
+              signUpError.message.toLowerCase().includes('already exists') ||
+              signUpError.status === 400) {
+            throw new Error("Dit e-mailadres is al gekoppeld aan een account. Probeer in te loggen met dit adres.");
+          }
+          throw signUpError;
+        }
+
+        if (data.user) {
+          // Bij sommige Supabase instellingen krijg je direct een sessie, bij andere moet je eerst mail bevestigen
+          if (!data.session) {
+            setSuccessInfo("Bevestigingsmail verstuurd naar " + cleanEmail + ". Klik op de link in de mail om je account te activeren.");
+          }
         }
       }
     } catch (err: any) {
-      setError(err.message || "Er ging iets mis. Controleer je gegevens.");
+      console.error("Auth Error:", err);
+      // Vertaal veelvoorkomende fouten naar vriendelijk Nederlands
+      let friendlyMessage = err.message;
+      if (err.message.includes('Invalid login credentials')) {
+        friendlyMessage = "E-mailadres of wachtwoord onjuist.";
+      } else if (err.message.includes('Email not confirmed')) {
+        friendlyMessage = "Bevestig eerst je e-mailadres via de link in je mailbox.";
+      }
+      
+      setError(friendlyMessage || "Er ging iets mis. Controleer je gegevens.");
     } finally {
       setLoading(false);
     }
