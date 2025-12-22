@@ -1,8 +1,6 @@
-
 import React, { useState } from 'react';
 import { formatCurrency } from '../constants';
-// Added FileSpreadsheet to the imports from lucide-react
-import { Save, Plus, AlertTriangle, Trash2, Sheet, UploadCloud, BookOpen, Copy, Check, ChevronDown, ChevronUp, X, ExternalLink, FileSpreadsheet } from 'lucide-react';
+import { Save, Plus, AlertTriangle, Trash2, Sheet, UploadCloud, Copy, Check, ChevronDown, ChevronUp, X, ExternalLink, FileSpreadsheet, Info, MousePointer2, Play } from 'lucide-react';
 import { Expense } from '../types';
 import { postToGoogleSheet } from '../services/sheetService';
 
@@ -31,7 +29,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
   const [localSheetUrl, setLocalSheetUrl] = useState<string>(sheetUrl || '');
   const [isSyncing, setIsSyncing] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
-  const [codeCopied, setCodeCopied] = useState(false);
+  const [scriptCopied, setScriptCopied] = useState(false);
   
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryAmount, setNewCategoryAmount] = useState('');
@@ -103,30 +101,36 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     const success = await postToGoogleSheet(localSheetUrl, allExpenses);
     setIsSyncing(false);
     if (success) {
-      alert('Alle uitgaven zijn naar de Budgetcoach verzonden!');
+      alert('Verbinding geslaagd! De data is zichtbaar in je sheet.');
     } else {
-      alert('Fout bij verzenden. Controleer of de URL eindigt op /exec');
+      alert('Verbinding mislukt. Heb je de URL wel op "Iedereen" gezet bij het deployen?');
     }
   };
 
-  const googleScriptCode = `/** 
- * MARBUDGET CONNECTOR
- */
-function doPost(e) {
+  const scriptCode = `function doPost(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheets()[0];
   var data = JSON.parse(e.postData.contents);
   var items = Array.isArray(data) ? data : [data];
+  
   items.forEach(function(item) {
-    sheet.appendRow([new Date(), item.description, item.category, item.amount, item.date, item.receiptImage ? "Ja" : "Nee"]);
+    sheet.appendRow([
+      new Date(), 
+      item.description || "Onbekend", 
+      item.category || "Overig", 
+      item.amount || 0, 
+      item.date || "", 
+      item.receiptImage ? "Heeft foto" : "Geen foto"
+    ]);
   });
+  
   return ContentService.createTextOutput("OK").setMimeType(ContentService.MimeType.TEXT);
 }`;
 
-  const copyScriptCode = () => {
-    navigator.clipboard.writeText(googleScriptCode);
-    setCodeCopied(true);
-    setTimeout(() => setCodeCopied(false), 2000);
+  const copyScript = () => {
+    navigator.clipboard.writeText(scriptCode);
+    setScriptCopied(true);
+    setTimeout(() => setScriptCopied(false), 2000);
   };
 
   const totalBudget = Object.values(localBudgets).reduce((sum, val) => sum + parseValue(val), 0);
@@ -141,10 +145,10 @@ function doPost(e) {
         <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
           <div>
             <h2 className="text-xl font-black text-gray-800 tracking-tight">Instellingen</h2>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Personaliseer MarBudget</p>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">MarBudget Configuratie</p>
           </div>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-800 transition-colors">
-            <X size={24} className="w-6 h-6" />
+            <X size={24} />
           </button>
         </div>
         
@@ -167,39 +171,72 @@ function doPost(e) {
             </div>
           </div>
 
-          {/* Coach Link */}
-          <div className="bg-green-50/50 p-8 rounded-[2rem] border border-green-100 space-y-6">
+          {/* Google Sheets Sectie */}
+          <div className="bg-blue-50/50 p-6 rounded-[2rem] border border-blue-100 space-y-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center text-green-700">
+              <div className="flex items-center text-blue-700">
                 <Sheet className="w-5 h-5 mr-3" />
-                <label className="text-[10px] font-black uppercase tracking-[0.2em]">Externe Export (Optioneel)</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em]">Google Sheet Koppeling</label>
               </div>
+              <button 
+                onClick={() => setShowGuide(!showGuide)}
+                className="text-[9px] font-black uppercase text-blue-600 bg-blue-100 px-3 py-1.5 rounded-full hover:bg-blue-200 transition-colors flex items-center"
+              >
+                {showGuide ? <ChevronUp size={12} className="mr-1" /> : <ChevronDown size={12} className="mr-1" />}
+                {showGuide ? 'Sluit hulp' : 'Stappenplan'}
+              </button>
             </div>
 
-            <div className="space-y-4">
-              <p className="text-[11px] text-gray-500 font-bold leading-relaxed">
-                Wil je uitgaven automatisch exporteren naar Google Sheets? Gebruik onze master template of koppel je eigen script.
-              </p>
-              
-              <a 
-                href="https://docs.google.com/spreadsheets/d/1YourTemplateID/copy" 
-                target="_blank" 
-                className="w-full bg-white border border-green-200 p-4 rounded-2xl flex items-center justify-between group hover:border-green-400 transition-all"
-              >
-                <div className="flex items-center">
-                  <FileSpreadsheet className="w-5 h-5 text-green-600 mr-3" />
-                  <span className="text-xs font-bold text-gray-800 tracking-tight">Open Master Template</span>
-                </div>
-                <ExternalLink size={14} className="text-gray-300 group-hover:text-green-600" />
-              </a>
+            {showGuide && (
+              <div className="bg-white border border-blue-100 p-5 rounded-2xl animate-fade-in space-y-5 shadow-sm">
+                <div className="space-y-4">
+                  <div className="flex gap-4">
+                    <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">1</div>
+                    <div className="flex-1">
+                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Code Kopiëren</p>
+                      <button 
+                        onClick={copyScript}
+                        className="w-full py-2 bg-gray-50 border border-gray-200 rounded-xl text-[10px] font-black text-gray-500 uppercase flex items-center justify-center hover:bg-white hover:border-blue-300 transition-all"
+                      >
+                        {scriptCopied ? <Check size={14} className="text-green-500 mr-2" /> : <Copy size={14} className="mr-2" />}
+                        {scriptCopied ? 'Gekopieerd!' : 'Kopieer Script Code'}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-4">
+                    <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">2</div>
+                    <div className="flex-1">
+                      <p className="text-[11px] font-bold text-gray-800 leading-tight">In Google Plakken</p>
+                      <p className="text-[10px] text-gray-500 leading-relaxed">Ga naar je tabblad (uit je screenshot), verwijder alle tekst en plak de nieuwe code erin.</p>
+                    </div>
+                  </div>
 
+                  <div className="flex gap-4">
+                    <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">3</div>
+                    <div className="flex-1">
+                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">De Blauwe Knop</p>
+                      <p className="text-[10px] text-gray-500 leading-relaxed">
+                        Klik rechtsboven op de blauwe knop <span className="bg-blue-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">Deploy</span> (of Implementeren).
+                      </p>
+                      <div className="mt-2 bg-blue-50 p-2 rounded-lg border border-blue-100 text-[9px] font-bold text-blue-700 flex items-start">
+                        <MousePointer2 size={12} className="mr-2 mt-0.5" />
+                        <span>Kies "Nieuwe Implementatie" -> "Web App" -> Toegang: "Iedereen"</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
               <div className="relative group">
                 <input
                   type="text"
-                  placeholder="Plak hier je Google Web App URL (/exec)"
+                  placeholder="Plak hier de URL die eindigt op /exec"
                   value={localSheetUrl}
                   onChange={(e) => setLocalSheetUrl(e.target.value)}
-                  className="w-full p-4 bg-white border border-green-200 rounded-2xl focus:ring-4 focus:ring-green-100 outline-none text-[11px] font-mono text-gray-600 shadow-sm transition-all"
+                  className="w-full p-4 bg-white border border-blue-200 rounded-2xl focus:ring-4 focus:ring-blue-100 outline-none text-[11px] font-mono text-gray-600 shadow-sm transition-all"
                 />
               </div>
 
@@ -207,9 +244,9 @@ function doPost(e) {
                 <button 
                   onClick={handleSyncAll}
                   disabled={isSyncing}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase tracking-widest py-4 rounded-2xl flex items-center justify-center transition-all shadow-md active:scale-95 disabled:opacity-50"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest py-4 rounded-2xl flex items-center justify-center transition-all shadow-md active:scale-95 disabled:opacity-50"
                 >
-                  {isSyncing ? 'Bezig met synchroniseren...' : (
+                  {isSyncing ? 'Verbinding testen...' : (
                     <>
                       <UploadCloud className="w-4 h-4 mr-2" />
                       Test Verbinding
