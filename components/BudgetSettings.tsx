@@ -107,13 +107,21 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     }
   };
 
-  const googleScriptCode = `// 1. PLAK DEZE CODE IN GOOGLE SCRIPTS
+  const googleScriptCode = `/** 
+ * MARBUDGET CONNECTOR
+ * STAP 1: Open je Google Sheet.
+ * STAP 2: Ga naar 'Extensies' -> 'Apps Script'.
+ * STAP 3: Plak deze code en klik op 'Opslaan'.
+ */
+
 function doPost(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) return ContentService.createTextOutput("Fout: Script is niet gekoppeld aan een Sheet.").setMimeType(ContentService.MimeType.TEXT);
   
-  // Voorkom foutmeldingen als er handmatig op 'uitvoeren' wordt geklikt
+  var sheet = ss.getSheets()[0]; // Pakt het eerste tabblad
+  
   if (!e || !e.postData || !e.postData.contents) {
-    return ContentService.createTextOutput("Fout: Geen data ontvangen. Gebruik de app om te testen.");
+    return ContentService.createTextOutput("OK").setMimeType(ContentService.MimeType.TEXT);
   }
 
   var data = JSON.parse(e.postData.contents);
@@ -126,19 +134,25 @@ function doPost(e) {
       item.category || "Overig", 
       item.amount || 0, 
       item.date || "",
-      item.receiptImage ? "Heeft foto" : "Geen foto"
+      item.receiptImage ? "Ja" : "Nee"
     ]);
   });
   
   return ContentService.createTextOutput("OK").setMimeType(ContentService.MimeType.TEXT);
 }
 
-// 2. TEST-FUNCTIE: Selecteer deze in de balk bovenin en klik op 'Uitvoeren'
+// TEST-FUNCTIE: Selecteer 'testMe' in de balk bovenin en klik op 'Uitvoeren'
 function testMe() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) {
+    Logger.log("FOUT: Dit script is losstaand. Open je Google Sheet -> Extensies -> Apps Script!");
+    return;
+  }
+  setupSheet(); // Maak eerst de koppen aan
   var mockEvent = {
     postData: {
       contents: JSON.stringify({
-        description: "TEST UITGAVE",
+        description: "TEST BONNETJE",
         category: "Test",
         amount: 12.34,
         date: "2024-01-01"
@@ -146,7 +160,16 @@ function testMe() {
     }
   };
   doPost(mockEvent);
-  Logger.log("Kijk nu in je Google Sheet, er staat een test-regel!");
+  Logger.log("Succes! Er staat nu een regel in je Sheet: " + ss.getName());
+}
+
+// Maakt automatisch de kolomkoppen aan
+function setupSheet() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["Scan Datum", "Omschrijving", "Categorie", "Bedrag", "Bon Datum", "Foto Geüpload"]);
+    sheet.getRange("1:1").setFontWeight("bold").setBackground("#f3f3f3");
+  }
 }`;
 
   const copyScriptCode = () => {
@@ -209,8 +232,8 @@ function testMe() {
             {showGuide && (
               <div className="bg-white p-5 rounded-2xl border border-green-100 space-y-4 animate-fade-in shadow-sm">
                 <div className="space-y-2">
-                  <p className="text-[11px] font-bold text-gray-600 leading-relaxed">
-                    1. Plak de code hieronder in je Google Script venster.
+                  <p className="text-[11px] font-bold text-gray-800 leading-relaxed">
+                    <span className="text-red-600 font-black">CRUCIAL:</span> Ga naar je Google Sheet (<span className="italic">MarExport</span>), klik bovenin op <span className="font-black text-blue-600">Extensies</span> en dan op <span className="font-black text-blue-600">Apps Script</span>.
                   </p>
                   <div className="relative">
                     <pre className="bg-gray-900 text-cyan-400 p-4 rounded-xl text-[10px] font-mono overflow-x-auto leading-relaxed max-h-60">
@@ -225,9 +248,10 @@ function testMe() {
                   </div>
                 </div>
                 <p className="text-[11px] font-bold text-gray-600 leading-relaxed">
-                  2. Sla op en klik op <span className="text-blue-600 font-black">Implementeren</span> → <span className="text-blue-600 font-black">Nieuwe implementatie</span>.<br/>
-                  3. Selecteer <span className="font-black">Web-app</span>. Toegang: <span className="font-black">Iedereen</span>.<br/>
-                  4. <span className="text-amber-600 font-bold italic">Belangrijk:</span> Klik in Google <b>niet</b> op "Uitvoeren" bij <code>doPost</code>. Gebruik de functie <code>testMe</code> in de lijst bovenin om te testen!
+                  2. Sla de code op.<br/>
+                  3. Selecteer <span className="font-black">testMe</span> in de balk bovenin en klik op <span className="font-black text-blue-600">Uitvoeren</span>. Als er nu wél een regel verschijnt, ga dan naar stap 4.<br/>
+                  4. Klik op <span className="font-black text-blue-600">Implementeren</span> → <span className="font-black text-blue-600">Nieuwe implementatie</span>.<br/>
+                  5. Kies <span className="font-black">Web-app</span>. Toegang: <span className="font-black">Iedereen</span>.
                 </p>
               </div>
             )}
