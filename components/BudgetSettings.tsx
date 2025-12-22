@@ -107,9 +107,34 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     }
   };
 
-  const scriptCode = `function doPost(e) {
+  const scriptCode = `// --- MARBUDGET GOOGLE SHEETS SCRIPT ---
+
+/**
+ * 1. TEST FUNCTIE
+ * Klik op de 'Run' knop bovenin om te kijken of je sheet werkt.
+ * Er wordt dan een test-regel toegevoegd aan je Google Sheet.
+ */
+function testVerbinding() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheets()[0];
+  sheet.appendRow([new Date(), "TEST (HANDMATIG)", "Test", 0, "2024-01-01", "Nee"]);
+  Logger.log("Succes! Er is een test-regel toegevoegd aan je spreadsheet.");
+}
+
+/**
+ * 2. HOOFDFUNCTIE (doPost)
+ * Deze functie wordt aangeroepen door de MarBudget app.
+ * BELANGRIJK: Klik NIET op 'Run' bij deze functie, dat geeft een foutmelding.
+ * Gebruik de blauwe 'Deploy' knop om de URL te krijgen.
+ */
+function doPost(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheets()[0];
+  
+  if (!e || !e.postData) {
+    return ContentService.createTextOutput("Fout: Geen data. Dit is normaal als je handmatig op Run klikt.").setMimeType(ContentService.MimeType.TEXT);
+  }
+
   var data = JSON.parse(e.postData.contents);
   var items = Array.isArray(data) ? data : [data];
   
@@ -120,7 +145,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
       item.category || "Overig", 
       item.amount || 0, 
       item.date || "", 
-      item.receiptImage ? "Heeft foto" : "Geen foto"
+      item.receiptImage ? "Ja" : "Nee"
     ]);
   });
   
@@ -193,7 +218,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
                   <div className="flex gap-4">
                     <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">1</div>
                     <div className="flex-1">
-                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Code Kopiëren</p>
+                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Code Kopiëren & Plakken</p>
                       <button 
                         onClick={copyScript}
                         className="w-full py-2 bg-gray-50 border border-gray-200 rounded-xl text-[10px] font-black text-gray-500 uppercase flex items-center justify-center hover:bg-white hover:border-blue-300 transition-all"
@@ -201,29 +226,28 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
                         {scriptCopied ? <Check size={14} className="text-green-500 mr-2" /> : <Copy size={14} className="mr-2" />}
                         {scriptCopied ? 'Gekopieerd!' : 'Kopieer Script Code'}
                       </button>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-4">
-                    <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">2</div>
-                    <div className="flex-1">
-                      <p className="text-[11px] font-bold text-gray-800 leading-tight">In Google Plakken</p>
-                      <p className="text-[10px] text-gray-500 leading-relaxed">Ga naar je tabblad (uit je screenshot), verwijder alle tekst en plak de nieuwe code erin.</p>
+                      <p className="text-[9px] text-gray-400 mt-2 italic">Plak dit over alles heen in je Google Script venster.</p>
                     </div>
                   </div>
 
                   <div className="flex gap-4">
-                    <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">3</div>
+                    <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">2</div>
                     <div className="flex-1">
-                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">De Blauwe Knop</p>
+                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">De Blauwe Knop (Eénmalig)</p>
                       <p className="text-[10px] text-gray-500 leading-relaxed">
-                        Klik rechtsboven op de blauwe knop <span className="bg-blue-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">Deploy</span> (of Implementeren).
+                        Klik in Google op <span className="bg-blue-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">Deploy</span> &rarr; Nieuwe implementatie.
                       </p>
                       <div className="mt-2 bg-blue-50 p-2 rounded-lg border border-blue-100 text-[9px] font-bold text-blue-700 flex items-start">
                         <MousePointer2 size={12} className="mr-2 mt-0.5" />
-                        <span>Kies "Nieuwe Implementatie" &rarr; "Web App" &rarr; Toegang: "Iedereen"</span>
+                        <span>Kies "Web App" &rarr; Toegang: "Iedereen"</span>
                       </div>
                     </div>
+                  </div>
+                  
+                  <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl">
+                    <p className="text-[10px] font-bold text-amber-800">
+                      Tip: Je kunt nu wél op 'Run' klikken in Google om te testen. Het script voegt dan een test-rij toe aan je sheet.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -233,7 +257,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
               <div className="relative group">
                 <input
                   type="text"
-                  placeholder="Plak hier de URL die eindigt op /exec"
+                  placeholder="Plak hier de Web App URL (/exec)"
                   value={localSheetUrl}
                   onChange={(e) => setLocalSheetUrl(e.target.value)}
                   className="w-full p-4 bg-white border border-blue-200 rounded-2xl focus:ring-4 focus:ring-blue-100 outline-none text-[11px] font-mono text-gray-600 shadow-sm transition-all"
@@ -249,7 +273,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
                   {isSyncing ? 'Verbinding testen...' : (
                     <>
                       <UploadCloud className="w-4 h-4 mr-2" />
-                      Test Verbinding
+                      Test Verbinding vanuit App
                     </>
                   )}
                 </button>
