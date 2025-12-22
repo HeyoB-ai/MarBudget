@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Check, X, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Camera, Check, X, AlertCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import { analyzeReceipt, fileToGenerativePart } from '../services/geminiService';
 import { ReceiptAnalysisResult, Expense } from '../types';
 import { generateId } from '../constants';
@@ -242,13 +242,33 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onAddExpense, ca
                 </select>
               </div>
 
-              <button 
-                onClick={handleSave}
-                className={`w-full py-4 px-6 rounded-2xl flex items-center justify-center font-black uppercase tracking-widest text-xs shadow-lg transition-all active:scale-95 mt-4 ${isDuplicate ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary hover:bg-secondary'} text-white`}
-              >
-                <Check className="w-5 h-5 mr-2" />
-                {isDuplicate ? 'Toch Opslaan' : 'Toevoegen aan Lijst'}
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                {isDuplicate && (
+                  <button 
+                    onClick={resetScanner}
+                    className="flex-1 py-4 px-6 rounded-2xl flex items-center justify-center font-black uppercase tracking-widest text-[10px] border-2 border-amber-200 text-amber-600 hover:bg-amber-50 transition-all active:scale-95"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Niet Opslaan
+                  </button>
+                )}
+                <button 
+                  onClick={handleSave}
+                  className={`flex-[2] py-4 px-6 rounded-2xl flex items-center justify-center font-black uppercase tracking-widest text-[10px] shadow-lg transition-all active:scale-95 ${isDuplicate ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary hover:bg-secondary'} text-white`}
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  {isDuplicate ? 'Toch Opslaan' : 'Toevoegen aan Lijst'}
+                </button>
+              </div>
+              
+              {!isDuplicate && (
+                <button 
+                  onClick={resetScanner}
+                  className="w-full py-2 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] hover:text-gray-600 transition-colors"
+                >
+                  Annuleren
+                </button>
+              )}
             </div>
           )}
         </div>
