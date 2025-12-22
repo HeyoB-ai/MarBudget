@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { formatCurrency } from '../constants';
-import { Save, Plus, AlertTriangle, Trash2, Sheet, UploadCloud, Copy, Check, ChevronDown, ChevronUp, X, ExternalLink, FileSpreadsheet, Info, MousePointer2 } from 'lucide-react';
+import { Save, Plus, AlertTriangle, Trash2, Sheet, UploadCloud, Copy, Check, ChevronDown, ChevronUp, X, ExternalLink, FileSpreadsheet, Info, MousePointer2, AlertCircle, HelpCircle } from 'lucide-react';
 import { Expense } from '../types';
 import { postToGoogleSheet } from '../services/sheetService';
 
@@ -29,6 +29,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
   const [localSheetUrl, setLocalSheetUrl] = useState<string>(sheetUrl || '');
   const [isSyncing, setIsSyncing] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
   
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -103,7 +104,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     if (success) {
       alert('Verbinding geslaagd! De data is zichtbaar in je sheet.');
     } else {
-      alert('Verbinding mislukt. Heb je de URL wel op "Iedereen" gezet bij het deployen?');
+      setShowTroubleshooting(true);
     }
   };
 
@@ -124,15 +125,13 @@ function testVerbinding() {
 /**
  * 2. HOOFDFUNCTIE (doPost)
  * Deze functie wordt aangeroepen door de MarBudget app.
- * BELANGRIJK: Klik NIET op 'Run' bij deze functie, dat geeft een foutmelding.
- * Gebruik de blauwe 'Deploy' knop om de URL te krijgen.
  */
 function doPost(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheets()[0];
   
   if (!e || !e.postData) {
-    return ContentService.createTextOutput("Fout: Geen data. Dit is normaal als je handmatig op Run klikt.").setMimeType(ContentService.MimeType.TEXT);
+    return ContentService.createTextOutput("Fout: Geen data ontvangen.").setMimeType(ContentService.MimeType.TEXT);
   }
 
   var data = JSON.parse(e.postData.contents);
@@ -226,28 +225,21 @@ function doPost(e) {
                         {scriptCopied ? <Check size={14} className="text-green-500 mr-2" /> : <Copy size={14} className="mr-2" />}
                         {scriptCopied ? 'Gekopieerd!' : 'Kopieer Script Code'}
                       </button>
-                      <p className="text-[9px] text-gray-400 mt-2 italic">Plak dit over alles heen in je Google Script venster.</p>
                     </div>
                   </div>
 
                   <div className="flex gap-4">
                     <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">2</div>
                     <div className="flex-1">
-                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">De Blauwe Knop (Eénmalig)</p>
+                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">De Juiste URL vinden</p>
                       <p className="text-[10px] text-gray-500 leading-relaxed">
-                        Klik in Google op <span className="bg-blue-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">Deploy</span> &rarr; Nieuwe implementatie.
+                        Klik in Google op <span className="bg-blue-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">Deploy</span> &rarr; "New Deployment" &rarr; Kies <strong>Web App</strong>.
                       </p>
-                      <div className="mt-2 bg-blue-50 p-2 rounded-lg border border-blue-100 text-[9px] font-bold text-blue-700 flex items-start">
-                        <MousePointer2 size={12} className="mr-2 mt-0.5" />
-                        <span>Kies "Web App" &rarr; Toegang: "Iedereen"</span>
+                      <div className="mt-3 bg-amber-50 p-3 rounded-xl border border-amber-100 text-[10px] font-bold text-amber-800">
+                        <AlertCircle size={14} className="mb-1" />
+                        Cruciaal: Zet "Who has access" op <strong>Anyone</strong> (Iedereen). Zonder dit krijgt de app geen toegang.
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl">
-                    <p className="text-[10px] font-bold text-amber-800">
-                      Tip: Je kunt nu wél op 'Run' klikken in Google om te testen. Het script voegt dan een test-rij toe aan je sheet.
-                    </p>
                   </div>
                 </div>
               </div>
@@ -264,19 +256,50 @@ function doPost(e) {
                 />
               </div>
 
-              {localSheetUrl && localSheetUrl.includes('/exec') && (
+              <div className="flex gap-2">
                 <button 
                   onClick={handleSyncAll}
-                  disabled={isSyncing}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest py-4 rounded-2xl flex items-center justify-center transition-all shadow-md active:scale-95 disabled:opacity-50"
+                  disabled={isSyncing || !localSheetUrl}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest py-4 rounded-2xl flex items-center justify-center transition-all shadow-md active:scale-95 disabled:opacity-50"
                 >
-                  {isSyncing ? 'Verbinding testen...' : (
+                  {isSyncing ? 'Testen...' : (
                     <>
                       <UploadCloud className="w-4 h-4 mr-2" />
-                      Test Verbinding vanuit App
+                      Test Verbinding
                     </>
                   )}
                 </button>
+                <button 
+                  onClick={() => setShowTroubleshooting(!showTroubleshooting)}
+                  className="bg-white border border-blue-200 p-4 rounded-2xl text-blue-600 hover:bg-blue-50 transition-all"
+                  title="Hulp bij fouten"
+                >
+                  <HelpCircle size={20} />
+                </button>
+              </div>
+
+              {showTroubleshooting && (
+                <div className="bg-red-50 border border-red-100 p-5 rounded-[1.5rem] space-y-3 animate-fade-in">
+                  <h4 className="text-[10px] font-black text-red-800 uppercase tracking-widest">Verbinding mislukt? Check dit:</h4>
+                  <ul className="text-[10px] text-red-700 font-bold space-y-2">
+                    <li className="flex gap-2">
+                      <span className="text-red-300">•</span>
+                      <span>De URL moet eindigen op <strong>/exec</strong> (niet op /edit).</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-red-300">•</span>
+                      <span>Heb je op "Nieuwe Implementatie" geklikt na het plakken van de code?</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-red-300">•</span>
+                      <span>Staat "Toegang" echt op <strong>Iedereen</strong> (Anyone)?</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-red-300">•</span>
+                      <span>Ververs de pagina in Google en probeer een nieuwe Deploy.</span>
+                    </li>
+                  </ul>
+                </div>
               )}
             </div>
           </div>
