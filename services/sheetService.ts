@@ -7,24 +7,32 @@ export const postToGoogleSheet = async (url: string, data: Expense | Expense[]) 
   }
 
   try {
-    // We gebruiken 'no-cors' omdat Google Apps Script redirects gebruikt die CORS errors geven.
-    // Met 'no-cors' MOET de content-type een 'simple header' zijn (zoals text/plain).
-    // Let op: 'no-cors' geeft een 'opaque' response, waardoor we niet echt kunnen zien of het lukte.
-    // Een succesvolle fetch betekent hier alleen dat het netwerkverzoek is verstuurd.
-    const response = await fetch(url, {
+    // Gebruik AbortController om een timeout in te stellen (vangen van extreem trage verbindingen)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    // We gebruiken 'no-cors' omdat Google Apps Script redirects gebruikt die CORS errors geven in de browser.
+    // Met 'no-cors' is de response altijd 'opaque' (je ziet de inhoud niet, maar het verzoek wordt wel uitgevoerd).
+    await fetch(url, {
       method: 'POST',
       mode: 'no-cors', 
       cache: 'no-cache',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'text/plain',
       },
       body: JSON.stringify(data),
     });
     
-    console.log("Verzoek verstuurd naar Google Script. Status (opaque):", response.type);
+    clearTimeout(timeoutId);
+    console.log("Verzoek succesvol verzonden naar Google Script.");
     return true;
-  } catch (error) {
-    console.error("Kritieke fout bij verzenden naar Google Sheet. Check je URL of ad-blocker:", error);
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.error("Netwerk timeout: Het duurde te lang om verbinding te maken met Google.");
+    } else {
+      console.error("Kritieke fout bij verzenden naar Google Sheet. Check je URL of ad-blocker:", error);
+    }
     return false;
   }
 };

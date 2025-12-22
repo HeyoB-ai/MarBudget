@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { formatCurrency } from '../constants';
-import { Save, Plus, AlertTriangle, Trash2, Sheet, UploadCloud, Copy, Check, ChevronDown, ChevronUp, X, ExternalLink, FileSpreadsheet, Info, MousePointer2, AlertCircle, HelpCircle } from 'lucide-react';
+import { Save, Plus, AlertTriangle, Trash2, Sheet, UploadCloud, Copy, Check, ChevronDown, ChevronUp, X, ExternalLink, FileSpreadsheet, Info, MousePointer2, AlertCircle, HelpCircle, Loader2, Send } from 'lucide-react';
 import { Expense } from '../types';
 import { postToGoogleSheet } from '../services/sheetService';
 
@@ -12,6 +12,8 @@ interface BudgetSettingsProps {
   onSave: (newBudgets: Record<string, number>, newIncome: number, newSheetUrl: string) => void;
   onClose: () => void;
 }
+
+type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
 export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income, sheetUrl, allExpenses, onSave, onClose }) => {
   const [localBudgets, setLocalBudgets] = useState<Record<string, string>>(() => {
@@ -27,7 +29,7 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
   );
   
   const [localSheetUrl, setLocalSheetUrl] = useState<string>(sheetUrl || '');
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [testStatus, setTestStatus] = useState<TestStatus>('idle');
   const [showGuide, setShowGuide] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
@@ -98,23 +100,30 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
 
   const handleSyncAll = async () => {
     if (!localSheetUrl) return;
-    setIsSyncing(true);
-    const success = await postToGoogleSheet(localSheetUrl, allExpenses);
-    setIsSyncing(false);
+    setTestStatus('testing');
+    setShowTroubleshooting(false);
+    
+    // Test data sturen
+    const success = await postToGoogleSheet(localSheetUrl, {
+      id: 'test',
+      amount: 0,
+      date: new Date().toISOString().split('T')[0],
+      category: 'Test',
+      description: 'Verbindingstest vanuit MarBudget'
+    } as any);
+
     if (success) {
-      alert('Verbinding geslaagd! De data is zichtbaar in je sheet.');
+      setTestStatus('success');
+      // Na 4 seconden terug naar idle
+      setTimeout(() => setTestStatus('idle'), 5000);
     } else {
+      setTestStatus('error');
       setShowTroubleshooting(true);
     }
   };
 
   const scriptCode = `// --- MARBUDGET GOOGLE SHEETS SCRIPT ---
 
-/**
- * 1. TEST FUNCTIE
- * Klik op de 'Run' knop bovenin om te kijken of je sheet werkt.
- * Er wordt dan een test-regel toegevoegd aan je Google Sheet.
- */
 function testVerbinding() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheets()[0];
@@ -122,10 +131,6 @@ function testVerbinding() {
   Logger.log("Succes! Er is een test-regel toegevoegd aan je spreadsheet.");
 }
 
-/**
- * 2. HOOFDFUNCTIE (doPost)
- * Deze functie wordt aangeroepen door de MarBudget app.
- */
 function doPost(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheets()[0];
@@ -237,7 +242,7 @@ function doPost(e) {
                       </p>
                       <div className="mt-3 bg-amber-50 p-3 rounded-xl border border-amber-100 text-[10px] font-bold text-amber-800">
                         <AlertCircle size={14} className="mb-1" />
-                        Cruciaal: Zet "Who has access" op <strong>Anyone</strong> (Iedereen). Zonder dit krijgt de app geen toegang.
+                        Cruciaal: Zet "Who has access" op <strong>Anyone</strong> (Iedereen).
                       </div>
                     </div>
                   </div>
@@ -256,47 +261,59 @@ function doPost(e) {
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-3">
                 <button 
                   onClick={handleSyncAll}
-                  disabled={isSyncing || !localSheetUrl}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest py-4 rounded-2xl flex items-center justify-center transition-all shadow-md active:scale-95 disabled:opacity-50"
+                  disabled={testStatus === 'testing' || !localSheetUrl}
+                  className={`w-full py-4 rounded-2xl flex items-center justify-center transition-all shadow-md active:scale-95 disabled:opacity-50 text-[10px] font-black uppercase tracking-widest ${
+                    testStatus === 'success' ? 'bg-green-500 text-white' : 
+                    testStatus === 'error' ? 'bg-red-500 text-white' : 
+                    'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
                 >
-                  {isSyncing ? 'Testen...' : (
-                    <>
-                      <UploadCloud className="w-4 h-4 mr-2" />
-                      Test Verbinding
-                    </>
-                  )}
+                  {testStatus === 'testing' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {testStatus === 'success' && <Check className="w-4 h-4 mr-2" />}
+                  {testStatus === 'error' && <AlertCircle className="w-4 h-4 mr-2" />}
+                  {testStatus === 'idle' && <Send className="w-4 h-4 mr-2" />}
+                  
+                  {testStatus === 'testing' ? 'Verbinding testen...' : 
+                   testStatus === 'success' ? 'Verzonden!' : 
+                   testStatus === 'error' ? 'Fout opgetreden' : 
+                   'Test Verbinding'}
                 </button>
+
+                {testStatus === 'success' && (
+                  <div className="bg-green-50 border border-green-200 p-4 rounded-2xl animate-fade-in flex items-start gap-3">
+                    <Check className="text-green-500 w-5 h-5 shrink-0" />
+                    <p className="text-[10px] font-bold text-green-800 leading-tight">
+                      Signaal succesvol verzonden! Kijk nu in je Google Sheet tabblad of er een nieuwe regel (TEST) is verschenen.
+                    </p>
+                  </div>
+                )}
+
                 <button 
                   onClick={() => setShowTroubleshooting(!showTroubleshooting)}
-                  className="bg-white border border-blue-200 p-4 rounded-2xl text-blue-600 hover:bg-blue-50 transition-all"
-                  title="Hulp bij fouten"
+                  className="w-full py-2 text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity"
                 >
-                  <HelpCircle size={20} />
+                  <HelpCircle size={14} className="mr-2" /> Hulp bij verbindingsproblemen
                 </button>
               </div>
 
               {showTroubleshooting && (
                 <div className="bg-red-50 border border-red-100 p-5 rounded-[1.5rem] space-y-3 animate-fade-in">
-                  <h4 className="text-[10px] font-black text-red-800 uppercase tracking-widest">Verbinding mislukt? Check dit:</h4>
+                  <h4 className="text-[10px] font-black text-red-800 uppercase tracking-widest">Nog steeds geen resultaat?</h4>
                   <ul className="text-[10px] text-red-700 font-bold space-y-2">
                     <li className="flex gap-2">
                       <span className="text-red-300">•</span>
-                      <span>De URL moet eindigen op <strong>/exec</strong> (niet op /edit).</span>
+                      <span>Controleer of de URL eindigt op <strong>/exec</strong> (niet op /edit).</span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-red-300">•</span>
-                      <span>Heb je op "Nieuwe Implementatie" geklikt na het plakken van de code?</span>
+                      <span>Heb je na het aanpassen van de code een <strong>Nieuwe Implementatie</strong> aangemaakt in Google? (Een oude URL werkt vaak niet meer na code-updates).</span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-red-300">•</span>
-                      <span>Staat "Toegang" echt op <strong>Iedereen</strong> (Anyone)?</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-red-300">•</span>
-                      <span>Ververs de pagina in Google en probeer een nieuwe Deploy.</span>
+                      <span>Staat bij de implementatie "Who has access" op <strong>Anyone</strong>?</span>
                     </li>
                   </ul>
                 </div>
