@@ -114,7 +114,6 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
 
     if (success) {
       setTestStatus('success');
-      // Na 4 seconden terug naar idle
       setTimeout(() => setTestStatus('idle'), 5000);
     } else {
       setTestStatus('error');
@@ -222,7 +221,7 @@ function doPost(e) {
                   <div className="flex gap-4">
                     <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">1</div>
                     <div className="flex-1">
-                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Code Kopiëren & Plakken</p>
+                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Code Kopiëren</p>
                       <button 
                         onClick={copyScript}
                         className="w-full py-2 bg-gray-50 border border-gray-200 rounded-xl text-[10px] font-black text-gray-500 uppercase flex items-center justify-center hover:bg-white hover:border-blue-300 transition-all"
@@ -233,20 +232,28 @@ function doPost(e) {
                     </div>
                   </div>
 
-                  <div className="flex gap-4">
+                  <div className="flex gap-4 border-t border-gray-50 pt-4">
                     <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">2</div>
                     <div className="flex-1">
-                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">De Juiste URL vinden</p>
-                      <p className="text-[10px] text-gray-500 leading-relaxed">
-                        Klik in Google op <span className="bg-blue-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">Deploy</span> &rarr; "Nieuwe Implementatie" &rarr; Kies <strong>Web App</strong>.
-                      </p>
-                      <div className="mt-3 bg-amber-50 p-3 rounded-xl border border-amber-200 text-[10px] font-bold text-amber-800 space-y-2">
+                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Correcte Implementatie (Deploy)</p>
+                      <div className="mt-2 bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-3">
                         <div className="flex items-start gap-2">
-                          <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                          <span>Cruciaal: Zet "Wie heeft toegang" op <strong>Iedereen</strong> (Anyone).</span>
+                          <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-600" />
+                          <span className="text-[10px] font-bold text-amber-800">
+                            "Who has access" MOET staan op <strong>"Anyone"</strong> (Iedereen).
+                          </span>
                         </div>
-                        <div className="pl-6 text-[9px] text-amber-700 leading-tight">
-                          Selecteer <strong>NIET</strong> "Mijzelf" (Me). De instelling voor 'gebruiker die het web bezoekt' moet echt op <strong>Iedereen</strong> staan voor een werkende verbinding.
+                        
+                        <div className="pl-6 space-y-2">
+                          <p className="text-[9px] text-amber-700 leading-tight">
+                            ❌ Kies <strong>NIET</strong> voor "Anyone with Google Account". Dat blokkeert de verbinding.
+                          </p>
+                          <div className="p-2 bg-white/50 rounded-lg border border-amber-100">
+                            <p className="text-[9px] font-black text-amber-800 uppercase mb-1">Optie "Anyone" verdwenen?</p>
+                            <p className="text-[8px] text-amber-700 leading-relaxed italic">
+                              Gebruik je een zakelijk Google-account? De beheerder moet dan toestemming geven voor "Apps Script publiceren buiten het domein". Gebruik anders een privé Gmail-account voor de spreadsheet.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -306,19 +313,19 @@ function doPost(e) {
 
               {showTroubleshooting && (
                 <div className="bg-red-50 border border-red-100 p-5 rounded-[1.5rem] space-y-3 animate-fade-in">
-                  <h4 className="text-[10px] font-black text-red-800 uppercase tracking-widest">Nog steeds geen resultaat?</h4>
+                  <h4 className="text-[10px] font-black text-red-800 uppercase tracking-widest">Probleem met "Anyone"?</h4>
                   <ul className="text-[10px] text-red-700 font-bold space-y-2">
                     <li className="flex gap-2">
                       <span className="text-red-300">•</span>
-                      <span>Controleer of de URL eindigt op <strong>/exec</strong> (niet op /edit).</span>
+                      <span>Staat "Execute as" op <strong>Me</strong> (Mijzelf)? Dat is goed.</span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-red-300">•</span>
-                      <span>Heb je na het aanpassen van de code een <strong>Nieuwe Implementatie</strong> aangemaakt in Google? (Een oude URL werkt vaak niet meer na code-updates).</span>
+                      <span>Staat "Who has access" op <strong>Anyone</strong>? (Verplicht!).</span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-red-300">•</span>
-                      <span>Staat bij de implementatie "Who has access" op <strong>Anyone</strong>?</span>
+                      <span>Als je alleen "Anyone with Google Account" ziet, blokkeert je bedrijf dit. Maak de sheet in een <strong>privé Gmail account</strong> aan om dit te omzeilen.</span>
                     </li>
                   </ul>
                 </div>
