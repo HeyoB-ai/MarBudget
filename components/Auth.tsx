@@ -40,7 +40,7 @@ export const Auth = () => {
 
         if (signUpError) throw signUpError;
         if (data.user && !data.session) {
-          setSuccessInfo("Bevestigingsmail verstuurd naar " + email);
+          setSuccessInfo("Bevestigingsmail verstuurd naar " + email + ". Klik op de link in de mail om je account te activeren.");
         }
       }
     } catch (err: any) {
@@ -48,6 +48,12 @@ export const Auth = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoBackToLogin = () => {
+    setSuccessInfo(null);
+    setMode('login');
+    setError(null);
   };
 
   return (
@@ -64,12 +70,15 @@ export const Auth = () => {
 
         {successInfo ? (
           <div className="text-center py-6 animate-fade-in">
-            <div className="bg-primary/10 p-6 rounded-3xl mb-6">
+            <div className="bg-primary/10 p-6 rounded-3xl mb-6 border border-primary/5">
               <Mail className="w-12 h-12 text-primary mx-auto mb-4" />
               <h3 className="font-bold text-lg mb-2 text-gray-800">Check je mail</h3>
               <p className="text-sm text-gray-500 leading-relaxed">{successInfo}</p>
             </div>
-            <button onClick={() => setMode('login')} className="text-primary font-bold text-sm flex items-center justify-center mx-auto hover:underline">
+            <button 
+              onClick={handleGoBackToLogin} 
+              className="text-primary font-black text-xs uppercase tracking-widest flex items-center justify-center mx-auto hover:text-secondary transition-colors"
+            >
               <RotateCcw size={14} className="mr-2" /> Terug naar inloggen
             </button>
           </div>
@@ -91,11 +100,11 @@ export const Auth = () => {
               <form onSubmit={handleAuth} className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase ml-4">E-mailadres</label>
-                  <input type="email" required placeholder="naam@voorbeeld.nl" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
+                  <input type="email" required placeholder="naam@voorbeeld.nl" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none text-sm font-medium" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-400 uppercase ml-4">Wachtwoord</label>
-                  <input type="password" required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none text-sm" />
+                  <input type="password" required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl focus:ring-2 focus:ring-primary/20 outline-none text-sm font-medium" />
                 </div>
                 <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-secondary transition-all flex justify-center items-center active:scale-95 disabled:opacity-70 mt-4">
                   {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <>Start Sessie <ArrowRight className="ml-2 w-4 h-4" /></>}
@@ -121,20 +130,20 @@ export const Auth = () => {
               </div>
             ) : (
               <form onSubmit={handleAuth} className="space-y-3 animate-fade-in">
-                <button type="button" onClick={() => setMode('register_select')} className="text-[10px] font-bold text-primary flex items-center mb-4 uppercase tracking-widest"><ChevronLeft size={12} className="mr-1" /> Terug naar keuze</button>
+                <button type="button" onClick={() => setMode('register_select')} className="text-[10px] font-black text-primary flex items-center mb-4 uppercase tracking-widest"><ChevronLeft size={12} className="mr-1" /> Terug naar keuze</button>
                 
                 {mode === 'register_client' && (
                   <div className="space-y-1 mb-2">
                     <label className="text-[10px] font-bold text-primary uppercase ml-4">Coach Code</label>
-                    <input type="text" required placeholder="Plak hier de code van je coach" value={familyCode} onChange={(e) => setFamilyCode(e.target.value)} className="w-full p-4 bg-primary/5 border border-primary/10 rounded-2xl font-mono text-xs text-center" />
+                    <input type="text" required placeholder="Plak hier de code van je coach" value={familyCode} onChange={(e) => setFamilyCode(e.target.value)} className="w-full p-4 bg-primary/5 border border-primary/10 rounded-2xl font-mono text-xs text-center focus:ring-2 focus:ring-primary/20 outline-none" />
                   </div>
                 )}
 
-                <input type="text" required placeholder="Volledige Naam" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm" />
-                <input type="email" required placeholder="E-mailadres" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm" />
-                <input type="password" required placeholder="Wachtwoord (min. 6 tekens)" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm" />
+                <input type="text" required placeholder="Volledige Naam" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none" />
+                <input type="email" required placeholder="E-mailadres" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none" />
+                <input type="password" required placeholder="Wachtwoord (min. 6 tekens)" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none" />
                 
-                <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-lg mt-4 flex justify-center active:scale-95 transition-all">
+                <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-2xl font-bold shadow-lg mt-4 flex justify-center active:scale-95 transition-all disabled:opacity-50">
                   {loading ? <Loader2 className="animate-spin w-5 h-5" /> : (mode === 'register_coach' ? "Start Praktijk" : "Koppel met Coach")}
                 </button>
               </form>
