@@ -254,7 +254,7 @@ function doPost(e) {
                     <div className="flex-1">
                       <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Deploy & Test</p>
                       <p className="text-[9px] text-gray-500 leading-relaxed">
-                        Plak de code in Google Scripts, klik op <strong>Implementeren</strong> > <strong>Nieuwe implementatie</strong>. Kopieer de nieuwe URL en plak hem hieronder.
+                        Plak de code in Google Scripts, klik op <strong>Implementeren</strong> &gt; <strong>Nieuwe implementatie</strong>. Kopieer de nieuwe URL en plak hem hieronder.
                       </p>
                     </div>
                   </div>

@@ -12,7 +12,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { supabase } from './lib/supabaseClient';
 
 const Dashboard = () => {
-  const { user, profile, tenant, signOut, isCloudReady, role } = useAuth();
+  const { user, profile, tenant, signOut, isCloudReady, role, refreshUserData } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [budgets, setBudgets] = useState<Record<string, number>>({});
   const [income, setIncome] = useState<number>(0);
@@ -100,6 +100,25 @@ const Dashboard = () => {
       } catch (err) { 
         console.error("Cloud opslag mislukt."); 
       }
+    }
+  };
+
+  const handleUpdateSettings = async (newB: Record<string, number>, newI: number, newS: string) => {
+    setBudgets(newB);
+    setIncome(newI);
+    if (isCloudReady && tenant) {
+      try {
+        const { data: existingI } = await supabase.from('incomes').select('id').eq('tenant_id', tenant.id).maybeSingle();
+        if (existingI) await supabase.from('incomes').update({ amount: newI }).eq('id', existingI.id);
+        else await supabase.from('incomes').insert({ tenant_id: tenant.id, amount: newI });
+        
+        await supabase.from('tenants').update({ sheet_url: newS }).eq('id', tenant.id);
+        await supabase.from('budgets').delete().eq('tenant_id', tenant.id);
+        for (const [cat, limit] of Object.entries(newB)) {
+          await supabase.from('budgets').insert({ tenant_id: tenant.id, category: cat, limit_amount: limit });
+        }
+        await fetchData();
+      } catch (err) { console.error(err); }
     }
   };
 
@@ -227,7 +246,6 @@ const Dashboard = () => {
         ) : (
           <div className="space-y-4 animate-fade-in">
             
-            {/* Filter Indicator */}
             {selectedCategoryFilter && (
               <div className="bg-white border border-primary/20 p-5 rounded-[2rem] flex items-center justify-between animate-fade-in mb-4 shadow-sm">
                 <div className="flex items-center gap-4">
@@ -310,15 +328,35 @@ const Dashboard = () => {
         )}
       </main>
 
-      {showSettings && <BudgetSettings budgets={budgets} income={income} sheetUrl={tenant?.sheet_url || ""} allExpenses={expenses} onSave={(newB, newI, newS) => { handleUpdateSettings(newB, newI, newS); setShowSettings(false); }} onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <BudgetSettings 
+          budgets={budgets} 
+          income={income} 
+          sheetUrl={tenant?.sheet_url || ""} 
+          allExpenses={expenses} 
+          onSave={handleUpdateSettings} 
+          onClose={() => setShowSettings(false)} 
+        />
+      )}
       {showAdmin && <AdminDashboard onClose={() => setShowAdmin(false)} />}
     </div>
   );
 };
 
-const handleUpdateSettings = async (newB: Record<string, number>, newI: number, newS: string) => {
-  // Logic from the original App.tsx - included in the snippet for context
-};
+const MaintenanceScreen = () => (
+  <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center font-sans">
+    <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl max-w-sm border border-gray-100 animate-fade-in">
+      <div className="bg-primary/5 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-8">
+        <Loader2 className="animate-spin text-primary w-10 h-10" />
+      </div>
+      <h2 className="text-2xl font-black text-gray-800 mb-4 tracking-tight">Even geduld...</h2>
+      <p className="text-sm text-gray-500 leading-relaxed mb-10">
+        We maken je persoonlijke budget-omgeving gereed in de cloud. Dit duurt slechts enkele seconden.
+      </p>
+      <button onClick={() => window.location.reload()} className="w-full bg-primary text-white py-4 rounded-2xl font-extrabold shadow-lg hover:bg-secondary active:scale-95 transition-all">Controleer Verbinding</button>
+    </div>
+  </div>
+);
 
 const AppContent = () => {
   const { session, loading, isCloudReady, tenant } = useAuth();
@@ -329,7 +367,7 @@ const AppContent = () => {
     </div>
   );
   if (!session) return <Auth />;
-  if (!tenant && !isCloudReady) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Laden...</div>;
+  if (!tenant && !isCloudReady) return <MaintenanceScreen />;
   return <Dashboard />;
 };
 
