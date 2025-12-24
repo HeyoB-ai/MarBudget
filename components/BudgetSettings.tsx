@@ -103,13 +103,12 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     setTestStatus('testing');
     setShowTroubleshooting(false);
     
-    // Test signal with enriched data
     const success = await postToGoogleSheet(localSheetUrl, {
       id: 'test',
       amount: 0,
       date: new Date().toISOString().split('T')[0],
       category: 'Verbindingstest',
-      description: 'Signaal vanuit MarBudget App',
+      description: 'Signaal vanuit MarBudget App (v2.1)',
       user_name: 'Systeem Test',
       remaining_budget: 100
     } as any);
@@ -123,17 +122,17 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income,
     }
   };
 
-  const scriptCode = `// --- MARBUDGET GOOGLE SHEETS SCRIPT v2 ---
+  const scriptCode = `// --- MARBUDGET GOOGLE SHEETS SCRIPT v2.1 ---
+// Gebruik dit script om namen en budgetten correct te ontvangen.
 
-function testVerbinding() {
+function setupSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheets()[0];
-  // Voeg kopteksten toe als de sheet leeg is
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(["Scan Datum", "Winkel/Omschr", "Categorie", "Bedrag (€)", "Bon Datum", "Gebruiker", "Budget Resterend (€)"]);
-  }
-  sheet.appendRow([new Date(), "TEST HANDMATIG", "Test", 0, "2024-01-01", "Systeem", 0]);
-  Logger.log("Test-regel toegevoegd!");
+  var headers = ["Datum gescand", "Omschrijving", "Categorie", "Bedrag", "Datum gekocht", "Cliënt", "Rest Budget"];
+  
+  // Altijd koppen controleren/overschrijven voor consistentie
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#e0f2f1");
 }
 
 function doPost(e) {
@@ -147,9 +146,9 @@ function doPost(e) {
   var data = JSON.parse(e.postData.contents);
   var items = Array.isArray(data) ? data : [data];
   
-  // Headers toevoegen indien leeg
+  // Als de sheet leeg is, eerst setup doen
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(["Scan Datum", "Winkel/Omschr", "Categorie", "Bedrag (€)", "Bon Datum", "Gebruiker", "Budget Resterend (€)"]);
+    setupSheet();
   }
 
   items.forEach(function(item) {
@@ -159,7 +158,7 @@ function doPost(e) {
       item.category || "Overig", 
       item.amount || 0, 
       item.date || "", 
-      item.user_name || "Anoniem",
+      item.user_name || "Onbekend",
       item.remaining_budget || 0
     ]);
   });
@@ -216,56 +215,47 @@ function doPost(e) {
             <div className="flex items-center justify-between">
               <div className="flex items-center text-blue-700">
                 <Sheet className="w-5 h-5 mr-3" />
-                <label className="text-[10px] font-black uppercase tracking-[0.2em]">Google Sheet Koppeling</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em]">Google Sheet v2.1</label>
               </div>
               <button 
                 onClick={() => setShowGuide(!showGuide)}
                 className="text-[9px] font-black uppercase text-blue-600 bg-blue-100 px-3 py-1.5 rounded-full hover:bg-blue-200 transition-colors flex items-center"
               >
                 {showGuide ? <ChevronUp size={12} className="mr-1" /> : <ChevronDown size={12} className="mr-1" />}
-                {showGuide ? 'Sluit hulp' : 'Stappenplan'}
+                {showGuide ? 'Sluit hulp' : 'Update Instructies'}
               </button>
             </div>
 
             {showGuide && (
               <div className="bg-white border border-blue-100 p-5 rounded-2xl animate-fade-in space-y-5 shadow-sm">
+                <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 mb-4">
+                   <p className="text-[10px] font-bold text-amber-800 leading-tight">
+                     ⚠️ <strong>Belangrijk:</strong> Je zag in je sheet nog "Ja/Nee" staan. Dat betekent dat het oude script nog actief was. Kopieer de code hieronder en doe een <strong>Nieuwe Implementatie</strong> in Google Scripts.
+                   </p>
+                </div>
+                
                 <div className="space-y-4">
                   <div className="flex gap-4">
                     <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">1</div>
                     <div className="flex-1">
-                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Code Kopiëren (v2)</p>
+                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Nieuwe Code Kopiëren</p>
                       <button 
                         onClick={copyScript}
                         className="w-full py-2 bg-gray-50 border border-gray-200 rounded-xl text-[10px] font-black text-gray-500 uppercase flex items-center justify-center hover:bg-white hover:border-blue-300 transition-all"
                       >
                         {scriptCopied ? <Check size={14} className="text-green-500 mr-2" /> : <Copy size={14} className="mr-2" />}
-                        {scriptCopied ? 'Gekopieerd!' : 'Kopieer Script Code'}
+                        {scriptCopied ? 'Gekopieerd!' : 'Kopieer Script v2.1'}
                       </button>
-                      <p className="text-[8px] text-gray-400 mt-2 italic">Deze nieuwe versie ondersteunt namen van cliënten en het resterende budget per categorie.</p>
                     </div>
                   </div>
 
                   <div className="flex gap-4 border-t border-gray-50 pt-4">
                     <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">2</div>
                     <div className="flex-1">
-                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Correcte Implementatie (Deploy)</p>
-                      <div className="mt-2 bg-amber-50 p-4 rounded-xl border border-amber-200 space-y-3">
-                        <div className="flex items-start gap-2">
-                          <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-600" />
-                          <span className="text-[10px] font-bold text-amber-800">
-                            "Who has access" MOET staan op <strong>"Anyone"</strong>.
-                          </span>
-                        </div>
-                        
-                        <div className="pl-6 space-y-2">
-                          <p className="text-[9px] text-amber-700 leading-tight">
-                            ❌ Kies <strong>NIET</strong> voor "Anyone with Google Account" of "Me". Dat blokkeert de verbinding van de cliënten.
-                          </p>
-                          <p className="text-[9px] text-amber-700 leading-tight">
-                            ℹ️ Als "Anyone" niet verschijnt, gebruik dan een privé Gmail-account in plaats van een zakelijk account.
-                          </p>
-                        </div>
-                      </div>
+                      <p className="text-[11px] font-bold text-gray-800 mb-2 leading-tight">Deploy & Test</p>
+                      <p className="text-[9px] text-gray-500 leading-relaxed">
+                        Plak de code in Google Scripts, klik op <strong>Implementeren</strong> > <strong>Nieuwe implementatie</strong>. Kopieer de nieuwe URL en plak hem hieronder.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -273,46 +263,26 @@ function doPost(e) {
             )}
 
             <div className="space-y-4">
-              <div className="relative group">
-                <input
-                  type="text"
-                  placeholder="Plak hier de Web App URL (/exec)"
-                  value={localSheetUrl}
-                  onChange={(e) => setLocalSheetUrl(e.target.value)}
-                  className="w-full p-4 bg-white border border-blue-200 rounded-2xl focus:ring-4 focus:ring-blue-100 outline-none text-[11px] font-mono text-gray-600 shadow-sm transition-all"
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="Plak hier de nieuwe Web App URL (/exec)"
+                value={localSheetUrl}
+                onChange={(e) => setLocalSheetUrl(e.target.value)}
+                className="w-full p-4 bg-white border border-blue-200 rounded-2xl focus:ring-4 focus:ring-blue-100 outline-none text-[11px] font-mono text-gray-600 shadow-sm transition-all"
+              />
 
-              <div className="flex flex-col gap-3">
-                <button 
-                  onClick={handleSyncAll}
-                  disabled={testStatus === 'testing' || !localSheetUrl}
-                  className={`w-full py-4 rounded-2xl flex items-center justify-center transition-all shadow-md active:scale-95 disabled:opacity-50 text-[10px] font-black uppercase tracking-widest ${
-                    testStatus === 'success' ? 'bg-green-500 text-white' : 
-                    testStatus === 'error' ? 'bg-red-500 text-white' : 
-                    'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                >
-                  {testStatus === 'testing' && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  {testStatus === 'success' && <Check className="w-4 h-4 mr-2" />}
-                  {testStatus === 'error' && <AlertCircle className="w-4 h-4 mr-2" />}
-                  {testStatus === 'idle' && <Send className="w-4 h-4 mr-2" />}
-                  
-                  {testStatus === 'testing' ? 'Verbinding testen...' : 
-                   testStatus === 'success' ? 'Verzonden!' : 
-                   testStatus === 'error' ? 'Fout opgetreden' : 
-                   'Test Verbinding'}
-                </button>
-
-                {testStatus === 'success' && (
-                  <div className="bg-green-50 border border-green-200 p-4 rounded-2xl animate-fade-in flex items-start gap-3">
-                    <Check className="text-green-500 w-5 h-5 shrink-0" />
-                    <p className="text-[10px] font-bold text-green-800 leading-tight">
-                      Signaal succesvol verzonden! Kijk nu in je Google Sheet of er een nieuwe regel is verschenen met de naam "Systeem Test".
-                    </p>
-                  </div>
-                )}
-              </div>
+              <button 
+                onClick={handleSyncAll}
+                disabled={testStatus === 'testing' || !localSheetUrl}
+                className={`w-full py-4 rounded-2xl flex items-center justify-center transition-all shadow-md active:scale-95 disabled:opacity-50 text-[10px] font-black uppercase tracking-widest ${
+                  testStatus === 'success' ? 'bg-green-500 text-white' : 
+                  testStatus === 'error' ? 'bg-red-500 text-white' : 
+                  'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {testStatus === 'testing' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                {testStatus === 'testing' ? 'Verbinding testen...' : 'Test Verbinding (v2.1)'}
+              </button>
             </div>
           </div>
 
