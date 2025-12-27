@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { ReceiptScanner } from './components/ReceiptScanner';
 import { BudgetOverview } from './components/BudgetOverview';
@@ -5,14 +6,14 @@ import { BudgetSettings } from './components/BudgetSettings';
 import { Expense } from './types';
 import { INITIAL_BUDGETS, formatCurrency } from './constants';
 import { postToGoogleSheet } from './services/sheetService';
-import { Wallet, Settings, List, Trash2, ChevronLeft, ChevronRight, LogOut, Users, Loader2, Cloud, ShieldCheck, Share, CheckCircle2, Filter, X, Search } from 'lucide-react';
+import { Settings, List, Trash2, ChevronLeft, ChevronRight, LogOut, Users, Loader2, Share, CheckCircle2, X, Search, TrendingUp, CheckCircle } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Auth } from './components/Auth';
 import { AdminDashboard } from './components/AdminDashboard';
 import { supabase } from './lib/supabaseClient';
 
 const Dashboard = () => {
-  const { user, profile, tenant, signOut, isCloudReady, role, refreshUserData } = useAuth();
+  const { user, profile, tenant, signOut, isCloudReady, role } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [budgets, setBudgets] = useState<Record<string, number>>({});
   const [income, setIncome] = useState<number>(0);
@@ -48,7 +49,7 @@ const Dashboard = () => {
         setExpenses(mapped);
       }
     } catch (err) {
-      console.warn("Synchronisatie met cloud vertraagd.");
+      console.warn("Synchronisatie vertraagd.");
     } finally {
       setLoadingData(false);
     }
@@ -98,7 +99,7 @@ const Dashboard = () => {
           postToGoogleSheet(tenant.sheet_url, safeExpense);
         }
       } catch (err) { 
-        console.error("Cloud opslag mislukt."); 
+        console.error("Opslag mislukt."); 
       }
     }
   };
@@ -178,15 +179,20 @@ const Dashboard = () => {
       <header className="bg-white shadow-sm sticky top-0 z-10 border-b border-gray-100">
         <div className="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <div className="bg-primary text-white p-2.5 rounded-2xl shadow-md"><Wallet size={24} /></div>
+            <div className="bg-[#1a202c] text-white p-2.5 rounded-2xl shadow-md">
+              <TrendingUp size={24} className="text-primary" />
+            </div>
             <div className="flex flex-col">
-              <h1 className="text-xl font-black tracking-tight text-gray-800 leading-tight">MarBudget</h1>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-primary font-bold uppercase tracking-widest opacity-60">
+              <div className="flex items-baseline gap-2">
+                <h1 className="text-xl font-black tracking-tight text-[#1a202c] leading-tight">Numera</h1>
+                <span className="text-[10px] font-bold text-gray-400 italic">inzicht, overzicht, rust</span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[9px] text-primary font-black uppercase tracking-widest">
                   {role === 'master_admin' ? 'Coach' : 'Cliënt'}
                 </span>
-                <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{tenant?.name}</span>
+                <span className="w-1 h-1 bg-gray-200 rounded-full"></span>
+                <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{tenant?.name}</span>
               </div>
             </div>
           </div>
@@ -208,15 +214,15 @@ const Dashboard = () => {
         <div className="flex space-x-3 mb-8">
           <button 
             onClick={() => { setActiveTab('dashboard'); setSelectedCategoryFilter(null); }} 
-            className={`flex-1 py-3.5 px-4 text-sm font-bold rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2 ${activeTab === 'dashboard' ? 'bg-primary text-white scale-[1.02]' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
+            className={`flex-1 py-3.5 px-4 text-sm font-bold rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2 ${activeTab === 'dashboard' ? 'bg-[#1a202c] text-white scale-[1.02]' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
           >
-            Overzicht
+            Dashboard
           </button>
           <button 
             onClick={() => setActiveTab('expenses')} 
-            className={`flex-1 py-3.5 px-4 text-sm font-bold rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2 ${activeTab === 'expenses' ? 'bg-primary text-white scale-[1.02]' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
+            className={`flex-1 py-3.5 px-4 text-sm font-bold rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2 ${activeTab === 'expenses' ? 'bg-[#1a202c] text-white scale-[1.02]' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'}`}
           >
-            Uitgaven ({currentMonthExpenses.length})
+            Transacties ({currentMonthExpenses.length})
           </button>
         </div>
 
@@ -231,7 +237,7 @@ const Dashboard = () => {
             {loadingData ? (
               <div className="py-20 text-center text-gray-400 flex flex-col items-center">
                 <Loader2 className="animate-spin mb-3 w-8 h-8 opacity-20" />
-                <span className="text-xs font-bold uppercase tracking-widest">Data ophalen...</span>
+                <span className="text-xs font-bold uppercase tracking-widest">Inladen...</span>
               </div>
             ) : (
               <BudgetOverview 
@@ -253,7 +259,7 @@ const Dashboard = () => {
                     <Search size={18} />
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Gefilterd op</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/60">Geselecteerd</span>
                     <span className="text-base font-black text-gray-800">{selectedCategoryFilter}</span>
                   </div>
                 </div>
@@ -287,15 +293,15 @@ const Dashboard = () => {
             {filteredExpenses.length === 0 ? (
               <div className="text-center py-24 bg-white rounded-[3.5rem] border-dashed border-2 border-gray-100 flex flex-col items-center">
                 <div className="bg-gray-50 p-8 rounded-full mb-6 text-gray-200"><List size={48} /></div>
-                <p className="text-gray-400 font-bold uppercase text-xs tracking-widest">
-                  {selectedCategoryFilter ? `Geen bonnen in ${selectedCategoryFilter}` : 'Nog geen bonnetjes deze maand'}
+                <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.2em]">
+                  {selectedCategoryFilter ? `Geen data in ${selectedCategoryFilter}` : 'Nog geen transacties'}
                 </p>
                 {selectedCategoryFilter && (
                   <button 
                     onClick={() => setSelectedCategoryFilter(null)}
                     className="mt-6 bg-primary/5 text-primary py-3 px-8 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-primary/10 transition-all"
                   >
-                    Toon alle uitgaven
+                    Toon alles
                   </button>
                 )}
               </div>
@@ -346,14 +352,15 @@ const Dashboard = () => {
 const MaintenanceScreen = () => (
   <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center font-sans">
     <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl max-w-sm border border-gray-100 animate-fade-in">
-      <div className="bg-primary/5 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-8">
-        <Loader2 className="animate-spin text-primary w-10 h-10" />
+      <div className="bg-[#1a202c] w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg">
+        <TrendingUp className="animate-pulse text-primary w-10 h-10" />
       </div>
-      <h2 className="text-2xl font-black text-gray-800 mb-4 tracking-tight">Even geduld...</h2>
-      <p className="text-sm text-gray-500 leading-relaxed mb-10">
-        We maken je persoonlijke budget-omgeving gereed in de cloud. Dit duurt slechts enkele seconden.
+      <h2 className="text-2xl font-black text-[#1a202c] mb-4 tracking-tight">Even geduld...</h2>
+      <p className="text-sm text-gray-500 leading-relaxed mb-4">
+        We maken je persoonlijke <strong className="text-primary">Numera</strong> omgeving gereed.
       </p>
-      <button onClick={() => window.location.reload()} className="w-full bg-primary text-white py-4 rounded-2xl font-extrabold shadow-lg hover:bg-secondary active:scale-95 transition-all">Controleer Verbinding</button>
+      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-10 italic">inzicht, overzicht, rust</p>
+      <button onClick={() => window.location.reload()} className="w-full bg-[#1a202c] text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-black active:scale-95 transition-all">Controleer Verbinding</button>
     </div>
   </div>
 );
@@ -362,8 +369,13 @@ const AppContent = () => {
   const { session, loading, isCloudReady, tenant } = useAuth();
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-      <div className="bg-primary text-white p-4 rounded-3xl shadow-xl animate-bounce mb-6"><Wallet size={32} /></div>
-      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-300">MarBudget Laadt...</span>
+      <div className="bg-[#1a202c] text-primary p-4 rounded-3xl shadow-xl animate-bounce mb-6">
+        <TrendingUp size={32} />
+      </div>
+      <div className="flex flex-col items-center">
+        <span className="text-2xl font-black text-[#1a202c] tracking-tighter">Numera</span>
+        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mt-1">Laden...</span>
+      </div>
     </div>
   );
   if (!session) return <Auth />;

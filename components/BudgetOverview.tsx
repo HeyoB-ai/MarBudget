@@ -165,7 +165,7 @@ export const BudgetOverview: React.FC<BudgetOverviewProps> = ({ expenses, budget
                     </div>
                     <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                       <span>{formatCurrency(spent)}</span>
-                      <span>{formatCurrency(limit)}</span>
+                      <span>Budget {formatCurrency(limit)}</span>
                     </div>
                   </div>
                 </div>

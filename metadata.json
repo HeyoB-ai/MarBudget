@@ -1,6 +1,6 @@
 {
-  "name": "MarBudget",
-  "description": "Slimme budgetcoach applicatie voor het beheren van uitgaven en budgetten met AI-bonnetjesscanner.",
+  "name": "Numera",
+  "description": "Slimme budgetcoach applicatie voor inzicht, overzicht en rust in je financiën.",
   "requestFramePermissions": [
     "camera"
   ]
