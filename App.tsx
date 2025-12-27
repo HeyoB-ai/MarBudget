@@ -87,15 +87,17 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 pb-20 font-sans animate-fade-in">
       <header className="bg-white shadow-sm sticky top-0 z-20 border-b border-gray-100">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <NumeraLogo size={38} />
+        <div className="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <NumeraLogo size={52} />
             <div className="flex flex-col">
-              <div className="flex items-baseline gap-2">
-                <h1 className="text-xl font-black tracking-tight text-secondary leading-tight">Numera</h1>
-                <span className="text-[10px] font-bold text-gray-400 italic hidden sm:block">inzicht, overzicht, rust</span>
-              </div>
-              <span className="text-[9px] text-primary font-black uppercase tracking-widest">{tenant?.name}</span>
+              <h1 className="text-2xl font-black tracking-tighter text-secondary leading-none">Numera</h1>
+              <span className="text-[11px] font-extralight text-gray-400 tracking-tight leading-tight mt-1">
+                inzicht, overzicht, rust
+              </span>
+              <span className="text-[10px] text-primary font-black uppercase tracking-widest mt-1.5 leading-none">
+                {tenant?.name || 'MIJN BUDGET'}
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -116,13 +118,13 @@ const Dashboard = () => {
         <div className="flex space-x-3 mb-8">
           <button 
             onClick={() => { setActiveTab('dashboard'); setSelectedCategoryFilter(null); }} 
-            className={`flex-1 py-3.5 text-xs font-black uppercase tracking-widest rounded-2xl transition-all shadow-sm ${activeTab === 'dashboard' ? 'bg-secondary text-white' : 'bg-white text-gray-400 border border-gray-100'}`}
+            className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-sm ${activeTab === 'dashboard' ? 'bg-secondary text-white' : 'bg-white text-gray-400 border border-gray-100'}`}
           >
             Dashboard
           </button>
           <button 
             onClick={() => setActiveTab('expenses')} 
-            className={`flex-1 py-3.5 text-xs font-black uppercase tracking-widest rounded-2xl transition-all shadow-sm ${activeTab === 'expenses' ? 'bg-secondary text-white' : 'bg-white text-gray-400 border border-gray-100'}`}
+            className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-sm ${activeTab === 'expenses' ? 'bg-secondary text-white' : 'bg-white text-gray-400 border border-gray-100'}`}
           >
             Uitgaven ({currentMonthExpenses.length})
           </button>
@@ -204,9 +206,9 @@ const Dashboard = () => {
 const MaintenanceScreen = () => (
   <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center font-sans">
     <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl max-w-sm border border-gray-100 animate-fade-in flex flex-col items-center">
-      <NumeraLogo size={80} className="mb-8" />
-      <h2 className="text-2xl font-black text-secondary mb-2 tracking-tight">Numera</h2>
-      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.3em] mb-8 italic">inzicht, overzicht, rust</p>
+      <NumeraLogo size={80} className="mb-6" />
+      <h2 className="text-2xl font-black text-secondary tracking-tight">Numera</h2>
+      <p className="text-[11px] text-gray-400 font-extralight tracking-tight mb-8">inzicht, overzicht, rust</p>
       <div className="flex flex-col items-center mb-10">
          <Loader2 className="animate-spin text-primary w-8 h-8 mb-4 opacity-40" />
          <p className="text-sm text-gray-500 font-medium">Omgeving voorbereiden...</p>
@@ -220,10 +222,10 @@ const AppContent = () => {
   const { session, loading, isCloudReady, tenant } = useAuth();
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 animate-fade-in">
-      <NumeraLogo size={60} className="animate-bounce" />
-      <div className="flex flex-col items-center mt-6">
-        <span className="text-2xl font-black text-secondary tracking-tighter">Numera</span>
-        <span className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-300 mt-1">Laden...</span>
+      <NumeraLogo size={70} className="animate-pulse mb-6" />
+      <div className="flex flex-col items-center">
+        <span className="text-3xl font-black text-secondary tracking-tighter">Numera</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-300 mt-1">Laden...</span>
       </div>
     </div>
   );
