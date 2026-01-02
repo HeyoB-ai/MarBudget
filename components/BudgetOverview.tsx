@@ -4,12 +4,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Expense } from '../types';
 import { formatCurrency } from '../constants';
 import { AlertCircle, ChevronRight } from 'lucide-react';
-import { translations } from '../App';
+import { translations, translateCategory } from '../App';
 
 export const BudgetOverview = ({ lang, expenses, budgets, income, onCategoryClick }: any) => {
   const safeNum = (val: any) => isNaN(parseFloat(val)) ? 0 : parseFloat(val);
   
-  const trans = translations[lang as 'nl' | 'es'];
   const t = {
     nl: { remaining: 'Resterend Budget', avail: 'beschikbaar', spent: 'totaal uitgegeven', distribution: 'Uitgaven Verdeling', deficit: 'Tekort', left: 'Over', budget: 'Budget' },
     es: { remaining: 'Presupuesto Restante', avail: 'disponibles', spent: 'gasto total', distribution: 'Distribución de Gastos', deficit: 'Déficit', left: 'Restante', budget: 'Cupo' }
@@ -27,9 +26,8 @@ export const BudgetOverview = ({ lang, expenses, budgets, income, onCategoryClic
   const totalRemaining = totalLimit - totalSpent;
   const categoriesList = Object.keys(budgets);
   
-  // Vertaal categorie namen voor de grafiek
   const chartData = categoriesList.map(cat => ({ 
-    name: (trans.categories as any)[cat] || cat, 
+    name: translateCategory(cat, lang), 
     value: calculateStats(cat).spent 
   })).filter(d => d.value > 0);
 
@@ -78,7 +76,7 @@ export const BudgetOverview = ({ lang, expenses, budgets, income, onCategoryClic
         {categoriesList.map((cat) => {
           const { limit, spent, remaining, percentage } = calculateStats(cat);
           const isOver = remaining < 0;
-          const translatedName = (trans.categories as any)[cat] || cat;
+          const translatedName = translateCategory(cat, lang);
 
           return (
             <div key={cat} onClick={() => onCategoryClick?.(cat)} className={`bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 group cursor-pointer active:scale-95 hover:border-primary/20 transition-all ${isOver ? 'border-red-50 bg-red-50/10' : ''}`}>

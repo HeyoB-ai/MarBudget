@@ -12,7 +12,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { supabase } from './lib/supabaseClient';
 import { NumeraLogo } from './components/Logo';
 
-// Centraal vertaalobject met bi-directionele mapping voor categorieën
+// Centraal vertaalobject
 export const translations = {
   nl: {
     slogan: 'inzicht, overzicht, rust',
@@ -26,29 +26,28 @@ export const translations = {
     loadingApp: 'Laden...',
     remaining: 'Resterend',
     categories: {
-      // Mappen van zowel NL als ES keys naar NL display
-      'Alquiler/Hipoteca': 'Huur/Hypotheek',
-      'Huur/Hypotheek': 'Huur/Hypotheek',
-      'Energía y Agua': 'Energie & Water',
-      'Energie & Water': 'Energie & Water',
-      'Comestibles': 'Boodschappen',
-      'Boodschappen': 'Boodschappen',
-      'Transporte y Gasolina': 'Vervoer & Benzine',
-      'Vervoer & Benzine': 'Vervoer & Benzine',
-      'Teléfono e Internet': 'Telefoon & Internet',
-      'Telefoon & Internet': 'Telefoon & Internet',
-      'Seguros': 'Verzekeringen',
-      'Verzekeringen': 'Verzekeringen',
-      'Ocio y Restauración': 'Uitjes & Horeca',
-      'Uitjes & Horeca': 'Uitjes & Horeca',
-      'Otros': 'Overig',
-      'Overig': 'Overig'
+      'alquiler/hipoteca': 'Huur/Hypotheek',
+      'huur/hypotheek': 'Huur/Hypotheek',
+      'energía y agua': 'Energie & Water',
+      'energie & water': 'Energie & Water',
+      'comestibles': 'Boodschappen',
+      'boodschappen': 'Boodschappen',
+      'transporte y gasolina': 'Vervoer & Benzine',
+      'vervoer & benzine': 'Vervoer & Benzine',
+      'teléfono e internet': 'Telefoon & Internet',
+      'telefoon & internet': 'Telefoon & Internet',
+      'seguros': 'Verzekeringen',
+      'verzekeringen': 'Verzekeringen',
+      'ocio y restauración': 'Uitjes & Horeca',
+      'uitjes & horeca': 'Uitjes & Horeca',
+      'otros': 'Overig',
+      'overig': 'Overig'
     },
     settings: {
       title: 'Budget Instellingen',
       totalBudget: 'Totaal Inkomen / Budget',
       sheetTitle: 'Google Sheets Koppeling',
-      sheetDesc: 'Kopieer dit script en plak het in de Google Apps Script editor van je spreadsheet.',
+      sheetDesc: 'Kopieer dit script en plak het in de Google Apps Script editor.',
       copyScript: 'Kopieer Script',
       testConn: 'Test Verbinding',
       catBudget: 'Budget per Categorie',
@@ -57,22 +56,22 @@ export const translations = {
     },
     admin: {
       title: 'Coach Dashboard',
-      subtitle: 'Beheer cliënten en bekijk statistieken',
+      subtitle: 'Beheer cliënten',
       close: 'Sluiten',
-      codeTitle: 'Jouw Coach Code',
-      codeDesc: 'Deel deze code met je cliënten zodat zij hun account aan jouw praktijk kunnen koppelen.',
+      codeTitle: 'Coach Code',
+      codeDesc: 'Deel deze code met cliënten.',
       copy: 'Kopiëren',
       copied: 'Gekopieerd!',
-      currentClients: 'Huidige Cliënten',
-      noClients: 'Nog geen cliënten gekoppeld',
-      spentMonth: 'Uitgegeven deze maand',
+      currentClients: 'Cliënten',
+      noClients: 'Geen cliënten',
+      spentMonth: 'Uitgegeven',
       ofBudget: 'van budget',
       overLimit: 'Over limiet!',
-      tools: 'Coach Tools',
-      sheetOverview: 'Sheets Overzicht',
-      sheetSub: 'Bekijk alle ruwe data',
-      analysis: 'Trend Analyse',
-      analysisSub: 'Bekijk voortgang per cliënt'
+      tools: 'Tools',
+      sheetOverview: 'Sheets',
+      sheetSub: 'Bekijk data',
+      analysis: 'Analyse',
+      analysisSub: 'Voortgang'
     }
   },
   es: {
@@ -87,29 +86,28 @@ export const translations = {
     loadingApp: 'Cargando...',
     remaining: 'Restante',
     categories: {
-      // Mappen van zowel NL als ES keys naar ES display
-      'Alquiler/Hipoteca': 'Alquiler/Hipoteca',
-      'Huur/Hypotheek': 'Alquiler/Hipoteca',
-      'Energía y Agua': 'Energía y Agua',
-      'Energie & Water': 'Energía y Agua',
-      'Comestibles': 'Comestibles',
-      'Boodschappen': 'Comestibles',
-      'Transporte y Gasolina': 'Transporte y Gasolina',
-      'Vervoer & Benzine': 'Transporte y Gasolina',
-      'Teléfono e Internet': 'Teléfono e Internet',
-      'Telefoon & Internet': 'Teléfono e Internet',
-      'Seguros': 'Seguros',
-      'Verzekeringen': 'Seguros',
-      'Ocio y Restauración': 'Ocio y Restauración',
-      'Uitjes & Horeca': 'Ocio y Restauración',
-      'Otros': 'Otros',
-      'Overig': 'Otros'
+      'alquiler/hipoteca': 'Alquiler/Hipoteca',
+      'huur/hypotheek': 'Alquiler/Hipoteca',
+      'energía y agua': 'Energía y Agua',
+      'energie & water': 'Energía y Agua',
+      'comestibles': 'Comestibles',
+      'boodschappen': 'Comestibles',
+      'transporte y gasolina': 'Transporte y Gasolina',
+      'vervoer & benzine': 'Transporte y Gasolina',
+      'teléfono e internet': 'Teléfono e Internet',
+      'telefoon & internet': 'Teléfono e Internet',
+      'seguros': 'Seguros',
+      'verzekeringen': 'Seguros',
+      'ocio y restauración': 'Ocio y Restauración',
+      'uitjes & horeca': 'Ocio y Restauración',
+      'otros': 'Otros',
+      'overig': 'Otros'
     },
     settings: {
       title: 'Ajustes de Presupuesto',
       totalBudget: 'Ingresos Totales / Presupuesto',
       sheetTitle: 'Sincronización con Google Sheets',
-      sheetDesc: 'Copia este script y pégalo en el editor de Google Apps Script de tu hoja de cálculo.',
+      sheetDesc: 'Copia este script y pégalo en el editor de Google Apps Script.',
       copyScript: 'Copiar Script',
       testConn: 'Probar Conexión',
       catBudget: 'Presupuesto por Categoría',
@@ -118,24 +116,31 @@ export const translations = {
     },
     admin: {
       title: 'Panel de Coach',
-      subtitle: 'Gestiona clientes y visualiza estadísticas',
+      subtitle: 'Gestiona tus clientes',
       close: 'Cerrar',
       codeTitle: 'Tu Código de Coach',
-      codeDesc: 'Comparte este código con tus clientes para que puedan vincular su cuenta a tu práctica.',
+      codeDesc: 'Comparte este código con tus clientes.',
       copy: 'Copiar',
       copied: '¡Copiado!',
       currentClients: 'Clientes Actuales',
-      noClients: 'Aún no hay clientes vinculados',
+      noClients: 'No hay clientes',
       spentMonth: 'Gastado este mes',
       ofBudget: 'del presupuesto',
-      overLimit: '¡Sobre el límite!',
-      tools: 'Herramientas de Coach',
-      sheetOverview: 'Vista de Sheets',
-      sheetSub: 'Ver todos los datos brutos',
-      analysis: 'Análisis de Tendencias',
-      analysisSub: 'Ver progreso por cliente'
+      overLimit: '¡Excedido!',
+      tools: 'Herramientas',
+      sheetOverview: 'Vista Sheets',
+      sheetSub: 'Ver datos',
+      analysis: 'Análisis',
+      analysisSub: 'Progreso'
     }
   }
+};
+
+// Helper functie voor robuuste vertaling van categorieën
+export const translateCategory = (cat: string, lang: 'nl' | 'es'): string => {
+  const normalized = cat.trim().toLowerCase();
+  const map = translations[lang].categories as Record<string, string>;
+  return map[normalized] || cat;
 };
 
 const Dashboard = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | 'es') => void }) => {
@@ -193,9 +198,6 @@ const Dashboard = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | '
   });
   const filteredExpenses = selectedCategoryFilter ? currentMonthExpenses.filter(e => e.category === selectedCategoryFilter) : currentMonthExpenses;
 
-  // Helper om categorie-naam te vertalen voor weergave
-  const translateCat = (cat: string) => (t.categories as any)[cat] || cat;
-
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 pb-20 font-sans animate-fade-in">
       <header className="bg-white shadow-sm sticky top-0 z-20 border-b border-gray-100">
@@ -250,7 +252,7 @@ const Dashboard = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | '
           <div className="space-y-4">
             {selectedCategoryFilter && (
               <div className="bg-white p-5 rounded-[2rem] flex items-center justify-between border border-primary/20 shadow-sm">
-                <div className="flex items-center gap-3"><div className="bg-primary/10 p-2 rounded-xl text-primary"><Search size={18} /></div><span className="font-black text-gray-800">{translateCat(selectedCategoryFilter)}</span></div>
+                <div className="flex items-center gap-3"><div className="bg-primary/10 p-2 rounded-xl text-primary"><Search size={18} /></div><span className="font-black text-gray-800">{translateCategory(selectedCategoryFilter, lang)}</span></div>
                 <button onClick={() => setSelectedCategoryFilter(null)} className="p-2 text-gray-400 hover:text-red-500"><X size={20} /></button>
               </div>
             )}
@@ -262,7 +264,7 @@ const Dashboard = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | '
                   <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100">
                     {e.receiptImage ? <img src={e.receiptImage} className="w-full h-full object-cover" /> : <List size={20} className="text-gray-200" />}
                   </div>
-                  <div><h4 className="font-bold text-gray-800 text-sm leading-tight">{e.description}</h4><span className="text-[9px] font-black text-primary uppercase tracking-widest">{translateCat(e.category)}</span></div>
+                  <div><h4 className="font-bold text-gray-800 text-sm leading-tight">{e.description}</h4><span className="text-[9px] font-black text-primary uppercase tracking-widest">{translateCategory(e.category, lang)}</span></div>
                 </div>
                 <div className="text-right flex flex-col items-end"><span className="font-black text-gray-800">{formatCurrency(e.amount, lang)}</span><button onClick={async () => { setExpenses(prev => prev.filter(ex => ex.id !== e.id)); await supabase.from('expenses').delete().eq('id', e.id); }} className="text-gray-200 hover:text-red-500 mt-1 transition-colors"><Trash2 size={16} /></button></div>
               </div>
@@ -283,24 +285,10 @@ const Dashboard = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | '
   );
 };
 
-const MaintenanceScreen = ({ lang }: { lang: 'nl' | 'es' }) => {
-  const t = translations[lang];
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center font-sans">
-      <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl max-sm:px-6 max-w-sm border border-gray-100 flex flex-col items-center">
-        <NumeraLogo size={80} className="mb-6" />
-        <h2 className="text-2xl font-black text-secondary tracking-tight">Numera</h2>
-        <p className="text-[11px] text-gray-400 font-extralight tracking-tight mb-8">{t.slogan}</p>
-        <div className="flex flex-col items-center mb-10"><Loader2 className="animate-spin text-primary w-8 h-8 mb-4 opacity-40" /><p className="text-sm text-gray-500 font-medium">{t.prepEnv}</p></div>
-        <button onClick={() => window.location.reload()} className="w-full bg-secondary text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg">{t.refresh}</button>
-      </div>
-    </div>
-  );
-};
-
 const AppContent = () => {
   const { session, loading, isCloudReady, tenant } = useAuth();
-  const [lang, setLang] = useState<'nl' | 'es'>('nl');
+  // Standaard op 'es' gezet voor MarBudget cliënten
+  const [lang, setLang] = useState<'nl' | 'es'>('es');
   const t = translations[lang];
 
   if (loading) return (
@@ -310,7 +298,6 @@ const AppContent = () => {
     </div>
   );
   if (!session) return <Auth lang={lang} setLang={setLang} />;
-  if (!tenant && !isCloudReady) return <MaintenanceScreen lang={lang} />;
   return <Dashboard lang={lang} setLang={setLang} />;
 };
 

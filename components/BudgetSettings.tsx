@@ -4,7 +4,7 @@ import { formatCurrency } from '../constants';
 import { Save, Plus, AlertTriangle, Trash2, Sheet, Copy, Check, ChevronDown, ChevronUp, X, Loader2, Send } from 'lucide-react';
 import { Expense } from '../types';
 import { postToGoogleSheet } from '../services/sheetService';
-import { translations } from '../App';
+import { translations, translateCategory } from '../App';
 
 interface BudgetSettingsProps {
   lang: 'nl' | 'es';
@@ -20,7 +20,6 @@ type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
 export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ lang, budgets, income, sheetUrl, onSave, onClose }) => {
   const t = translations[lang].settings;
-  const categoriesMap = translations[lang].categories as any;
 
   const [localBudgets, setLocalBudgets] = useState<Record<string, string>>(() => {
     const formatted: Record<string, string> = {};
@@ -108,28 +107,6 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ lang, budgets, i
     if (success) setTimeout(() => setTestStatus('idle'), 5000);
   };
 
-  const scriptCode = `// --- NUMERA GOOGLE SHEETS SCRIPT v2.2 ---
-function setupSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheets()[0];
-  var headers = ["Date Scanned", "Description", "Category", "Amount", "Date Bought", "User", "Remaining"];
-  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#f8fafc");
-}
-
-function doPost(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheets()[0];
-  if (!e || !e.postData) return ContentService.createTextOutput("Error").setMimeType(ContentService.MimeType.TEXT);
-  var data = JSON.parse(e.postData.contents);
-  var items = Array.isArray(data) ? data : [data];
-  if (sheet.getLastRow() === 0) setupSheet();
-  items.forEach(function(item) {
-    sheet.appendRow([new Date(), item.description || "Unknown", item.category || "Other", item.amount || 0, item.date || "", item.user_name || "User", item.remaining_budget || 0]);
-  });
-  return ContentService.createTextOutput("OK").setMimeType(ContentService.MimeType.TEXT);
-}`;
-
   const categories = Object.keys(localBudgets).sort();
 
   return (
@@ -148,36 +125,7 @@ function doPost(e) {
             <label className="text-[9px] font-black text-primary uppercase tracking-[0.2em] block mb-2 ml-1">{t.totalBudget}</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-bold">€</span>
-              <input type="text" inputMode="decimal" placeholder="0,00" value={localIncomeStr} onChange={(e) => isValidNumberInput(e.target.value) && setLocalIncomeStr(e.target.value)} className="w-full pl-9 pr-4 py-4 bg-white border border-primary/20 rounded-2xl focus:ring-4 focus:ring-primary/10 outline-none font-black text-secondary" />
-            </div>
-          </div>
-
-          <div className="bg-blue-50/50 p-6 rounded-[2rem] border border-blue-100 space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center text-blue-700">
-                <Sheet className="w-5 h-5 mr-3" />
-                <label className="text-[9px] font-black uppercase tracking-widest">{t.sheetTitle}</label>
-              </div>
-              <button onClick={() => setShowGuide(!showGuide)} className="text-[8px] font-black uppercase text-blue-600 bg-blue-100 px-3 py-1.5 rounded-full">
-                {showGuide ? (lang === 'nl' ? 'Sluiten' : 'Cerrar') : (lang === 'nl' ? 'Instructies' : 'Instrucciones')}
-              </button>
-            </div>
-
-            {showGuide && (
-              <div className="bg-white border border-blue-100 p-5 rounded-2xl animate-fade-in space-y-4">
-                <p className="text-[9px] font-bold text-gray-500 leading-relaxed uppercase">{t.sheetDesc}</p>
-                <button onClick={() => { navigator.clipboard.writeText(scriptCode); setScriptCopied(true); setTimeout(() => setScriptCopied(false), 2000); }} className="w-full py-2 bg-gray-50 rounded-xl text-[9px] font-black text-gray-400 uppercase border border-gray-200 flex items-center justify-center">
-                  {scriptCopied ? <Check size={14} className="text-green-500 mr-2" /> : t.copyScript}
-                </button>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <input type="text" placeholder="Web App URL (/exec)" value={localSheetUrl} onChange={(e) => setLocalSheetUrl(e.target.value)} className="w-full p-4 bg-white border border-blue-200 rounded-2xl outline-none text-[10px] font-mono text-gray-500" />
-              <button onClick={handleSyncAll} disabled={testStatus === 'testing' || !localSheetUrl} className={`w-full py-4 rounded-2xl flex items-center justify-center font-black uppercase text-[10px] tracking-widest text-white shadow-md ${testStatus === 'success' ? 'bg-green-500' : testStatus === 'error' ? 'bg-red-500' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                {testStatus === 'testing' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                {testStatus === 'testing' ? (lang === 'nl' ? 'Testen...' : 'Probando...') : t.testConn}
-              </button>
+              <input type="text" inputMode="decimal" placeholder="0,00" value={localIncomeStr} onChange={(e) => isValidNumberInput(e.target.value) && setLocalIncomeStr(e.target.value)} className="w-full pl-9 pr-4 py-4 bg-white border border-primary/20 rounded-2xl focus:ring-4 focus:ring-primary/10 outline-none font-black text-secondary text-center" />
             </div>
           </div>
 
@@ -186,7 +134,7 @@ function doPost(e) {
             <div className="space-y-2">
               {categories.map(cat => (
                 <div key={cat} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 gap-3 group">
-                  <label className="text-sm font-bold text-gray-700 flex-1 truncate">{categoriesMap[cat] || cat}</label>
+                  <label className="text-sm font-bold text-gray-700 flex-1 truncate">{translateCategory(cat, lang)}</label>
                   <div className="relative w-24">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-[10px]">€</span>
                     <input type="text" inputMode="decimal" value={localBudgets[cat]} onChange={(e) => handleBudgetChange(cat, e.target.value)} className="w-full pl-6 pr-3 py-2 bg-white border border-gray-200 rounded-xl outline-none text-right font-black text-secondary text-sm" />

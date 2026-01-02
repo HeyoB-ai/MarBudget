@@ -17,11 +17,11 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
   const t = {
     nl: {
       slogan: 'inzicht, overzicht, rust', 
-      login: 'Inloggen', 
-      register: 'Aanmelden',
+      login: 'INLOGGEN', 
+      register: 'AANMELDEN',
       emailLabel: 'E-mailadres', 
       passLabel: 'Wachtwoord', 
-      startBtn: 'Starten', 
+      startBtn: 'STARTEN', 
       backBtn: 'Terug',
       coach: 'Ik ben een Coach', 
       client: 'Ik ben een Cliënt', 
@@ -34,11 +34,11 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
     },
     es: {
       slogan: 'visión, control, tranquilidad', 
-      login: 'Iniciar Sesión', 
-      register: 'Registrarse',
+      login: 'INICIAR SESIÓN', 
+      register: 'REGISTRARSE',
       emailLabel: 'Correo electrónico', 
       passLabel: 'Contraseña', 
-      startBtn: 'Entrar', 
+      startBtn: 'ENTRAR', 
       backBtn: 'Volver',
       coach: 'Soy Coach', 
       client: 'Soy Cliente', 
@@ -76,10 +76,9 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 font-sans animate-fade-in relative">
-      {/* Taalschakelaar */}
       <button 
         onClick={() => setLang(lang === 'nl' ? 'es' : 'nl')} 
-        className="absolute top-6 right-6 p-3 bg-white shadow-sm rounded-2xl flex items-center gap-2 text-primary font-black text-[10px] uppercase border border-gray-100 hover:bg-gray-50 transition-all"
+        className="absolute top-6 right-6 p-3 bg-white shadow-sm rounded-2xl flex items-center gap-2 text-primary font-black text-[10px] uppercase border border-gray-100 hover:bg-gray-50 transition-all z-50"
       >
         <Languages size={18} /> {lang}
       </button>
@@ -124,7 +123,7 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
                   placeholder={t.emailLabel} 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
-                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner" 
+                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner text-center" 
                 />
                 <input 
                   type="password" 
@@ -132,7 +131,7 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
                   placeholder={t.passLabel} 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
-                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner" 
+                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner text-center" 
                 />
                 <button 
                   type="submit" 
