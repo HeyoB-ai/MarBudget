@@ -12,7 +12,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { supabase } from './lib/supabaseClient';
 import { NumeraLogo } from './components/Logo';
 
-// Centraal vertaalobject voor de hele app
+// Centraal vertaalobject met bi-directionele mapping voor categorieën
 export const translations = {
   nl: {
     slogan: 'inzicht, overzicht, rust',
@@ -26,14 +26,23 @@ export const translations = {
     loadingApp: 'Laden...',
     remaining: 'Resterend',
     categories: {
+      // Mappen van zowel NL als ES keys naar NL display
       'Alquiler/Hipoteca': 'Huur/Hypotheek',
+      'Huur/Hypotheek': 'Huur/Hypotheek',
       'Energía y Agua': 'Energie & Water',
+      'Energie & Water': 'Energie & Water',
       'Comestibles': 'Boodschappen',
+      'Boodschappen': 'Boodschappen',
       'Transporte y Gasolina': 'Vervoer & Benzine',
+      'Vervoer & Benzine': 'Vervoer & Benzine',
       'Teléfono e Internet': 'Telefoon & Internet',
+      'Telefoon & Internet': 'Telefoon & Internet',
       'Seguros': 'Verzekeringen',
+      'Verzekeringen': 'Verzekeringen',
       'Ocio y Restauración': 'Uitjes & Horeca',
-      'Otros': 'Overig'
+      'Uitjes & Horeca': 'Uitjes & Horeca',
+      'Otros': 'Overig',
+      'Overig': 'Overig'
     },
     settings: {
       title: 'Budget Instellingen',
@@ -78,14 +87,23 @@ export const translations = {
     loadingApp: 'Cargando...',
     remaining: 'Restante',
     categories: {
+      // Mappen van zowel NL als ES keys naar ES display
       'Alquiler/Hipoteca': 'Alquiler/Hipoteca',
+      'Huur/Hypotheek': 'Alquiler/Hipoteca',
       'Energía y Agua': 'Energía y Agua',
+      'Energie & Water': 'Energía y Agua',
       'Comestibles': 'Comestibles',
+      'Boodschappen': 'Comestibles',
       'Transporte y Gasolina': 'Transporte y Gasolina',
+      'Vervoer & Benzine': 'Transporte y Gasolina',
       'Teléfono e Internet': 'Teléfono e Internet',
+      'Telefoon & Internet': 'Teléfono e Internet',
       'Seguros': 'Seguros',
+      'Verzekeringen': 'Seguros',
       'Ocio y Restauración': 'Ocio y Restauración',
-      'Otros': 'Otros'
+      'Uitjes & Horeca': 'Ocio y Restauración',
+      'Otros': 'Otros',
+      'Overig': 'Otros'
     },
     settings: {
       title: 'Ajustes de Presupuesto',
@@ -96,7 +114,7 @@ export const translations = {
       testConn: 'Probar Conexión',
       catBudget: 'Presupuesto por Categoría',
       newCat: 'Nueva categoría...',
-      save: 'Guardar Ajustes'
+      save: 'Guardar Configuración'
     },
     admin: {
       title: 'Panel de Coach',
@@ -269,7 +287,7 @@ const MaintenanceScreen = ({ lang }: { lang: 'nl' | 'es' }) => {
   const t = translations[lang];
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center font-sans">
-      <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl max-w-sm border border-gray-100 flex flex-col items-center">
+      <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl max-sm:px-6 max-w-sm border border-gray-100 flex flex-col items-center">
         <NumeraLogo size={80} className="mb-6" />
         <h2 className="text-2xl font-black text-secondary tracking-tight">Numera</h2>
         <p className="text-[11px] text-gray-400 font-extralight tracking-tight mb-8">{t.slogan}</p>
