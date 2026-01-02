@@ -12,8 +12,8 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { supabase } from './lib/supabaseClient';
 import { NumeraLogo } from './components/Logo';
 
-// Vertalingen object
-const translations = {
+// Centraal vertaalobject voor de hele app
+export const translations = {
   nl: {
     slogan: 'inzicht, overzicht, rust',
     myBudget: 'MIJN BUDGET',
@@ -24,7 +24,47 @@ const translations = {
     prepEnv: 'Omgeving voorbereiden...',
     refresh: 'Ververs Pagina',
     loadingApp: 'Laden...',
-    remaining: 'Resterend'
+    remaining: 'Resterend',
+    categories: {
+      'Alquiler/Hipoteca': 'Huur/Hypotheek',
+      'Energía y Agua': 'Energie & Water',
+      'Comestibles': 'Boodschappen',
+      'Transporte y Gasolina': 'Vervoer & Benzine',
+      'Teléfono e Internet': 'Telefoon & Internet',
+      'Seguros': 'Verzekeringen',
+      'Ocio y Restauración': 'Uitjes & Horeca',
+      'Otros': 'Overig'
+    },
+    settings: {
+      title: 'Numera Instellingen',
+      totalBudget: 'Totaal Maandbudget',
+      sheetTitle: 'Google Sheets Koppeling',
+      sheetDesc: 'Kopieer het script, plak het in Google Script, implementeer als Web App en plak de URL hieronder.',
+      copyScript: 'Kopieer Script v2.2',
+      testConn: 'Test Verbinding',
+      catBudget: 'Budget per Categorie',
+      newCat: 'Nieuwe Categorie',
+      save: 'Configuratie Opslaan'
+    },
+    admin: {
+      title: 'Cliënten Overzicht',
+      subtitle: 'Status van alle cliënten',
+      close: 'Sluiten',
+      codeTitle: 'Unieke Cliënt-Code',
+      codeDesc: 'Cliënten kunnen zich aanmelden met deze code om automatisch onder jouw begeleiding te vallen.',
+      copy: 'Kopieer',
+      copied: 'Gekopieerd',
+      currentClients: 'Huidige Cliënten',
+      noClients: 'Nog geen cliënten gekoppeld',
+      spentMonth: 'Verbruikt deze maand',
+      ofBudget: 'van budget',
+      overLimit: 'Overschrijding',
+      tools: 'Beheer Tools',
+      sheetOverview: 'Sheet Overzicht',
+      sheetSub: 'Klik in menu op \'Instellingen\' voor bulk export.',
+      analysis: 'Analyse',
+      analysisSub: 'Live status van alle gekoppelde cliënten.'
+    }
   },
   es: {
     slogan: 'visión, control, tranquilidad',
@@ -36,7 +76,47 @@ const translations = {
     prepEnv: 'Preparando entorno...',
     refresh: 'Refrescar Página',
     loadingApp: 'Cargando...',
-    remaining: 'Restante'
+    remaining: 'Restante',
+    categories: {
+      'Alquiler/Hipoteca': 'Alquiler/Hipoteca',
+      'Energía y Agua': 'Energía y Agua',
+      'Comestibles': 'Comestibles',
+      'Transporte y Gasolina': 'Transporte y Gasolina',
+      'Teléfono e Internet': 'Teléfono e Internet',
+      'Seguros': 'Seguros',
+      'Ocio y Restauración': 'Ocio y Restauración',
+      'Otros': 'Otros'
+    },
+    settings: {
+      title: 'Ajustes de Numera',
+      totalBudget: 'Presupuesto Mensual Total',
+      sheetTitle: 'Conexión con Google Sheets',
+      sheetDesc: 'Copie el script, péguelo en Google Script, impleméntelo como Web App y pegue la URL abajo.',
+      copyScript: 'Copiar Script v2.2',
+      testConn: 'Probar Conexión',
+      catBudget: 'Presupuesto por Categoría',
+      newCat: 'Nueva Categoría',
+      save: 'Guardar Configuración'
+    },
+    admin: {
+      title: 'Panel de Clientes',
+      subtitle: 'Estado de todos los clientes',
+      close: 'Cerrar',
+      codeTitle: 'Código Único de Cliente',
+      codeDesc: 'Los clientes pueden registrarse con este código para estar bajo su supervisión automáticamente.',
+      copy: 'Copiar',
+      copied: 'Copiado',
+      currentClients: 'Clientes Actuales',
+      noClients: 'Aún no hay clientes vinculados',
+      spentMonth: 'Consumido este mes',
+      ofBudget: 'del presupuesto',
+      overLimit: 'Excedido',
+      tools: 'Herramientas de Gestión',
+      sheetOverview: 'Resumen de Sheet',
+      sheetSub: 'Haga clic en \'Ajustes\' para la exportación masiva.',
+      analysis: 'Análisis',
+      analysisSub: 'Estado en vivo de todos los clientes vinculados.'
+    }
   }
 };
 
@@ -95,6 +175,9 @@ const Dashboard = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | '
   });
   const filteredExpenses = selectedCategoryFilter ? currentMonthExpenses.filter(e => e.category === selectedCategoryFilter) : currentMonthExpenses;
 
+  // Helper om categorie-naam te vertalen voor weergave
+  const translateCat = (cat: string) => (t.categories as any)[cat] || cat;
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 pb-20 font-sans animate-fade-in">
       <header className="bg-white shadow-sm sticky top-0 z-20 border-b border-gray-100">
@@ -111,7 +194,7 @@ const Dashboard = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | '
             <button 
               onClick={() => setLang(lang === 'nl' ? 'es' : 'nl')} 
               className="p-2.5 text-primary hover:bg-primary/5 rounded-2xl transition-all flex items-center gap-2"
-              title="Change Language"
+              title="Switch Language"
             >
               <Languages size={20} />
               <span className="text-[10px] font-black uppercase">{lang}</span>
@@ -149,7 +232,7 @@ const Dashboard = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | '
           <div className="space-y-4">
             {selectedCategoryFilter && (
               <div className="bg-white p-5 rounded-[2rem] flex items-center justify-between border border-primary/20 shadow-sm">
-                <div className="flex items-center gap-3"><div className="bg-primary/10 p-2 rounded-xl text-primary"><Search size={18} /></div><span className="font-black text-gray-800">{selectedCategoryFilter}</span></div>
+                <div className="flex items-center gap-3"><div className="bg-primary/10 p-2 rounded-xl text-primary"><Search size={18} /></div><span className="font-black text-gray-800">{translateCat(selectedCategoryFilter)}</span></div>
                 <button onClick={() => setSelectedCategoryFilter(null)} className="p-2 text-gray-400 hover:text-red-500"><X size={20} /></button>
               </div>
             )}
@@ -161,7 +244,7 @@ const Dashboard = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | '
                   <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100">
                     {e.receiptImage ? <img src={e.receiptImage} className="w-full h-full object-cover" /> : <List size={20} className="text-gray-200" />}
                   </div>
-                  <div><h4 className="font-bold text-gray-800 text-sm leading-tight">{e.description}</h4><span className="text-[9px] font-black text-primary uppercase tracking-widest">{e.category}</span></div>
+                  <div><h4 className="font-bold text-gray-800 text-sm leading-tight">{e.description}</h4><span className="text-[9px] font-black text-primary uppercase tracking-widest">{translateCat(e.category)}</span></div>
                 </div>
                 <div className="text-right flex flex-col items-end"><span className="font-black text-gray-800">{formatCurrency(e.amount, lang)}</span><button onClick={async () => { setExpenses(prev => prev.filter(ex => ex.id !== e.id)); await supabase.from('expenses').delete().eq('id', e.id); }} className="text-gray-200 hover:text-red-500 mt-1 transition-colors"><Trash2 size={16} /></button></div>
               </div>

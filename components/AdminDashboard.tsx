@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { TenantMember, Profile, Expense } from '../types';
 import { Users, Shield, Copy, Check, ExternalLink, FileSpreadsheet, Info, UserCheck, TrendingUp, AlertTriangle, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '../constants';
+import { translations } from '../App';
 
 interface MemberWithProfile extends TenantMember {
   profiles: Profile;
@@ -15,12 +16,13 @@ interface MemberWithProfile extends TenantMember {
   };
 }
 
-// Added lang property to the component signature
 export const AdminDashboard = ({ lang, onClose }: { lang: 'nl' | 'es', onClose: () => void }) => {
   const { tenant, role } = useAuth();
   const [members, setMembers] = useState<MemberWithProfile[]>([]);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const t = translations[lang].admin;
 
   useEffect(() => {
     if (tenant) fetchMembersAndStats();
@@ -29,7 +31,6 @@ export const AdminDashboard = ({ lang, onClose }: { lang: 'nl' | 'es', onClose: 
   const fetchMembersAndStats = async () => {
     setLoading(true);
     try {
-      // 1. Fetch members
       const { data: memberData, error: memberError } = await supabase
         .from('tenant_members')
         .select(`role, user_id, profiles ( id, full_name, email )`)
@@ -37,11 +38,9 @@ export const AdminDashboard = ({ lang, onClose }: { lang: 'nl' | 'es', onClose: 
       
       if (memberError) throw memberError;
 
-      // 2. Fetch total budget limit for the whole practice
       const { data: budgetData } = await supabase.from('budgets').select('limit_amount').eq('tenant_id', tenant?.id);
       const totalBudget = budgetData?.reduce((sum, b) => sum + Number(b.limit_amount), 0) || 0;
 
-      // 3. Fetch expenses for the current month
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0,0,0,0);
@@ -52,7 +51,6 @@ export const AdminDashboard = ({ lang, onClose }: { lang: 'nl' | 'es', onClose: 
         .eq('tenant_id', tenant?.id)
         .gte('date', startOfMonth.toISOString().split('T')[0]);
 
-      // 4. Combine data per client
       const enrichedMembers = (memberData as any).map((m: any) => {
         const userExpenses = expenseData?.filter(e => e.user_id === m.user_id) || [];
         const spent = userExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
@@ -90,26 +88,24 @@ export const AdminDashboard = ({ lang, onClose }: { lang: 'nl' | 'es', onClose: 
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-100 animate-fade-in">
         
-        {/* Header */}
         <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
           <div>
             <h2 className="text-2xl font-black text-gray-800 tracking-tight flex items-center">
               <Users className="w-6 h-6 mr-3 text-primary" />
-              Cliënten Overzicht
+              {t.title}
             </h2>
-            <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mt-1">Status van alle cliënten</p>
+            <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mt-1">{t.subtitle}</p>
           </div>
-          <button onClick={onClose} className="p-3 bg-white shadow-sm border border-gray-100 rounded-2xl text-gray-400 hover:text-gray-800 transition-all active:scale-95 font-bold text-xs uppercase tracking-widest">Sluiten</button>
+          <button onClick={onClose} className="p-3 bg-white shadow-sm border border-gray-100 rounded-2xl text-gray-400 hover:text-gray-800 transition-all active:scale-95 font-bold text-xs uppercase tracking-widest">{t.close}</button>
         </div>
 
         <div className="p-8 overflow-y-auto space-y-8 flex-1">
           
-          {/* Practice ID Card */}
           <div className="bg-primary/5 border border-primary/10 rounded-[2rem] p-6 relative overflow-hidden shadow-inner">
             <div className="relative z-10">
-              <h3 className="text-primary font-black text-[10px] uppercase tracking-[0.2em] mb-4">Unieke Cliënt-Code</h3>
+              <h3 className="text-primary font-black text-[10px] uppercase tracking-[0.2em] mb-4">{t.codeTitle}</h3>
               <p className="text-xs text-gray-600 mb-6 leading-relaxed font-medium">
-                Cliënten kunnen zich aanmelden met deze code om automatisch onder jouw begeleiding te vallen.
+                {t.codeDesc}
               </p>
               <div className="flex gap-2">
                 <div className="flex-1 bg-white border border-primary/10 p-4 rounded-2xl text-gray-700 font-mono text-center font-bold tracking-wider shadow-sm truncate">
@@ -120,16 +116,15 @@ export const AdminDashboard = ({ lang, onClose }: { lang: 'nl' | 'es', onClose: 
                   className="bg-primary hover:bg-secondary text-white px-6 rounded-2xl flex items-center transition-all shadow-lg active:scale-95"
                 >
                   {copied ? <Check size={18} /> : <Copy size={18} />}
-                  <span className="ml-2 font-black text-[10px] uppercase tracking-widest hidden sm:inline">{copied ? 'Gekopieerd' : 'Kopieer'}</span>
+                  <span className="ml-2 font-black text-[10px] uppercase tracking-widest hidden sm:inline">{copied ? t.copied : t.copy}</span>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Member List */}
           <div className="space-y-4">
             <div className="flex justify-between items-center px-2">
-              <h3 className="font-black text-gray-400 text-[10px] uppercase tracking-[0.2em]">Huidige Cliënten</h3>
+              <h3 className="font-black text-gray-400 text-[10px] uppercase tracking-[0.2em]">{t.currentClients}</h3>
               <button 
                 onClick={fetchMembersAndStats} 
                 className="text-primary p-2 hover:bg-primary/5 rounded-full transition-all"
@@ -141,7 +136,7 @@ export const AdminDashboard = ({ lang, onClose }: { lang: 'nl' | 'es', onClose: 
             
             <div className="grid gap-4">
               {members.length === 0 ? (
-                <div className="text-center py-10 text-gray-400 text-xs font-bold uppercase tracking-widest">Nog geen cliënten gekoppeld</div>
+                <div className="text-center py-10 text-gray-400 text-xs font-bold uppercase tracking-widest">{t.noClients}</div>
               ) : members.map((m) => (
                 <div key={m.user_id} className="bg-white border border-gray-100 rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-all">
                   <div className="flex items-start justify-between mb-4">
@@ -150,7 +145,7 @@ export const AdminDashboard = ({ lang, onClose }: { lang: 'nl' | 'es', onClose: 
                         {m.profiles?.full_name?.charAt(0) || '?'}
                       </div>
                       <div>
-                        <div className="font-bold text-gray-800 text-base leading-tight">{m.profiles?.full_name || 'Anoniem'}</div>
+                        <div className="font-bold text-gray-800 text-base leading-tight">{m.profiles?.full_name || '...'}</div>
                         <div className="text-[10px] text-gray-400 font-medium">{m.profiles?.email}</div>
                       </div>
                     </div>
@@ -162,9 +157,9 @@ export const AdminDashboard = ({ lang, onClose }: { lang: 'nl' | 'es', onClose: 
                   {m.stats && (
                     <div className="space-y-3 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
                       <div className="flex justify-between text-[11px] font-bold text-gray-600">
-                        <span>Verbruikt deze maand</span>
+                        <span>{t.spentMonth}</span>
                         <span className={m.stats.percent > 90 ? 'text-red-500' : 'text-gray-900'}>
-                          {formatCurrency(m.stats.totalSpent)}
+                          {formatCurrency(m.stats.totalSpent, lang)}
                         </span>
                       </div>
                       
@@ -176,10 +171,10 @@ export const AdminDashboard = ({ lang, onClose }: { lang: 'nl' | 'es', onClose: 
                       </div>
 
                       <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-gray-400">
-                        <span>{Math.round(m.stats.percent)}% van budget</span>
+                        <span>{Math.round(m.stats.percent)}% {t.ofBudget}</span>
                         {m.stats.percent > 100 && (
                           <div className="flex items-center text-red-500">
-                            <AlertTriangle size={10} className="mr-1" /> Overschrijding
+                            <AlertTriangle size={10} className="mr-1" /> {t.overLimit}
                           </div>
                         )}
                       </div>
@@ -190,20 +185,19 @@ export const AdminDashboard = ({ lang, onClose }: { lang: 'nl' | 'es', onClose: 
             </div>
           </div>
 
-          {/* Coach Quick Resources */}
           {isCoach && (
             <div className="space-y-4 mt-4">
-              <h3 className="font-black text-gray-400 text-[10px] uppercase tracking-[0.2em] ml-2">Beheer Tools</h3>
+              <h3 className="font-black text-gray-400 text-[10px] uppercase tracking-[0.2em] ml-2">{t.tools}</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-green-50/50 border border-green-100 p-5 rounded-[2rem] hover:bg-green-50 transition-all flex flex-col items-center text-center">
                   <FileSpreadsheet className="w-8 h-8 text-green-600 mb-2" />
-                  <h4 className="font-bold text-gray-800 text-[10px] uppercase tracking-widest mb-1">Sheet Overzicht</h4>
-                  <p className="text-[9px] text-green-700 font-medium">Klik in menu op 'Instellingen' voor bulk export.</p>
+                  <h4 className="font-bold text-gray-800 text-[10px] uppercase tracking-widest mb-1">{t.sheetOverview}</h4>
+                  <p className="text-[9px] text-green-700 font-medium">{t.sheetSub}</p>
                 </div>
                 <div className="bg-blue-50/50 border border-blue-100 p-5 rounded-[2rem] flex flex-col items-center text-center">
                   <TrendingUp className="w-8 h-8 text-blue-600 mb-2" />
-                  <h4 className="font-bold text-gray-800 text-[10px] uppercase tracking-widest mb-1">Analyse</h4>
-                  <p className="text-[9px] text-blue-700 font-medium">Live status van alle gekoppelde cliënten.</p>
+                  <h4 className="font-bold text-gray-800 text-[10px] uppercase tracking-widest mb-1">{t.analysis}</h4>
+                  <p className="text-[9px] text-blue-700 font-medium">{t.analysisSub}</p>
                 </div>
               </div>
             </div>
