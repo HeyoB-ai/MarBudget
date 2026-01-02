@@ -36,34 +36,34 @@ export const translations = {
       'Otros': 'Overig'
     },
     settings: {
-      title: 'Numera Instellingen',
-      totalBudget: 'Totaal Maandbudget',
+      title: 'Budget Instellingen',
+      totalBudget: 'Totaal Inkomen / Budget',
       sheetTitle: 'Google Sheets Koppeling',
-      sheetDesc: 'Kopieer het script, plak het in Google Script, implementeer als Web App en plak de URL hieronder.',
-      copyScript: 'Kopieer Script v2.2',
+      sheetDesc: 'Kopieer dit script en plak het in de Google Apps Script editor van je spreadsheet.',
+      copyScript: 'Kopieer Script',
       testConn: 'Test Verbinding',
       catBudget: 'Budget per Categorie',
-      newCat: 'Nieuwe Categorie',
-      save: 'Configuratie Opslaan'
+      newCat: 'Nieuwe categorie...',
+      save: 'Instellingen Opslaan'
     },
     admin: {
-      title: 'Cliënten Overzicht',
-      subtitle: 'Status van alle cliënten',
+      title: 'Coach Dashboard',
+      subtitle: 'Beheer cliënten en bekijk statistieken',
       close: 'Sluiten',
-      codeTitle: 'Unieke Cliënt-Code',
-      codeDesc: 'Cliënten kunnen zich aanmelden met deze code om automatisch onder jouw begeleiding te vallen.',
-      copy: 'Kopieer',
-      copied: 'Gekopieerd',
+      codeTitle: 'Jouw Coach Code',
+      codeDesc: 'Deel deze code met je cliënten zodat zij hun account aan jouw praktijk kunnen koppelen.',
+      copy: 'Kopiëren',
+      copied: 'Gekopieerd!',
       currentClients: 'Huidige Cliënten',
       noClients: 'Nog geen cliënten gekoppeld',
-      spentMonth: 'Verbruikt deze maand',
+      spentMonth: 'Uitgegeven deze maand',
       ofBudget: 'van budget',
-      overLimit: 'Overschrijding',
-      tools: 'Beheer Tools',
-      sheetOverview: 'Sheet Overzicht',
-      sheetSub: 'Klik in menu op \'Instellingen\' voor bulk export.',
-      analysis: 'Analyse',
-      analysisSub: 'Live status van alle gekoppelde cliënten.'
+      overLimit: 'Over limiet!',
+      tools: 'Coach Tools',
+      sheetOverview: 'Sheets Overzicht',
+      sheetSub: 'Bekijk alle ruwe data',
+      analysis: 'Trend Analyse',
+      analysisSub: 'Bekijk voortgang per cliënt'
     }
   },
   es: {
@@ -88,34 +88,34 @@ export const translations = {
       'Otros': 'Otros'
     },
     settings: {
-      title: 'Ajustes de Numera',
-      totalBudget: 'Presupuesto Mensual Total',
-      sheetTitle: 'Conexión con Google Sheets',
-      sheetDesc: 'Copie el script, péguelo en Google Script, impleméntelo como Web App y pegue la URL abajo.',
-      copyScript: 'Copiar Script v2.2',
+      title: 'Ajustes de Presupuesto',
+      totalBudget: 'Ingresos Totales / Presupuesto',
+      sheetTitle: 'Sincronización con Google Sheets',
+      sheetDesc: 'Copia este script y pégalo en el editor de Google Apps Script de tu hoja de cálculo.',
+      copyScript: 'Copiar Script',
       testConn: 'Probar Conexión',
       catBudget: 'Presupuesto por Categoría',
-      newCat: 'Nueva Categoría',
-      save: 'Guardar Configuración'
+      newCat: 'Nueva categoría...',
+      save: 'Guardar Ajustes'
     },
     admin: {
-      title: 'Panel de Clientes',
-      subtitle: 'Estado de todos los clientes',
+      title: 'Panel de Coach',
+      subtitle: 'Gestiona clientes y visualiza estadísticas',
       close: 'Cerrar',
-      codeTitle: 'Código Único de Cliente',
-      codeDesc: 'Los clientes pueden registrarse con este código para estar bajo su supervisión automáticamente.',
+      codeTitle: 'Tu Código de Coach',
+      codeDesc: 'Comparte este código con tus clientes para que puedan vincular su cuenta a tu práctica.',
       copy: 'Copiar',
-      copied: 'Copiado',
+      copied: '¡Copiado!',
       currentClients: 'Clientes Actuales',
       noClients: 'Aún no hay clientes vinculados',
-      spentMonth: 'Consumido este mes',
+      spentMonth: 'Gastado este mes',
       ofBudget: 'del presupuesto',
-      overLimit: 'Excedido',
-      tools: 'Herramientas de Gestión',
-      sheetOverview: 'Resumen de Sheet',
-      sheetSub: 'Haga clic en \'Ajustes\' para la exportación masiva.',
-      analysis: 'Análisis',
-      analysisSub: 'Estado en vivo de todos los clientes vinculados.'
+      overLimit: '¡Sobre el límite!',
+      tools: 'Herramientas de Coach',
+      sheetOverview: 'Vista de Sheets',
+      sheetSub: 'Ver todos los datos brutos',
+      analysis: 'Análisis de Tendencias',
+      analysisSub: 'Ver progreso por cliente'
     }
   }
 };

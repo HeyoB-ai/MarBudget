@@ -4,9 +4,12 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Expense } from '../types';
 import { formatCurrency } from '../constants';
 import { AlertCircle, ChevronRight } from 'lucide-react';
+import { translations } from '../App';
 
 export const BudgetOverview = ({ lang, expenses, budgets, income, onCategoryClick }: any) => {
   const safeNum = (val: any) => isNaN(parseFloat(val)) ? 0 : parseFloat(val);
+  
+  const trans = translations[lang as 'nl' | 'es'];
   const t = {
     nl: { remaining: 'Resterend Budget', avail: 'beschikbaar', spent: 'totaal uitgegeven', distribution: 'Uitgaven Verdeling', deficit: 'Tekort', left: 'Over', budget: 'Budget' },
     es: { remaining: 'Presupuesto Restante', avail: 'disponibles', spent: 'gasto total', distribution: 'Distribución de Gastos', deficit: 'Déficit', left: 'Restante', budget: 'Cupo' }
@@ -23,7 +26,13 @@ export const BudgetOverview = ({ lang, expenses, budgets, income, onCategoryClic
   const totalLimit = income > 0 ? income : Object.values(budgets).reduce((a: any, b: any) => a + safeNum(b), 0);
   const totalRemaining = totalLimit - totalSpent;
   const categoriesList = Object.keys(budgets);
-  const chartData = categoriesList.map(cat => ({ name: cat, value: calculateStats(cat).spent })).filter(d => d.value > 0);
+  
+  // Vertaal categorie namen voor de grafiek
+  const chartData = categoriesList.map(cat => ({ 
+    name: (trans.categories as any)[cat] || cat, 
+    value: calculateStats(cat).spent 
+  })).filter(d => d.value > 0);
+
   const COLORS = ['#14b8a6', '#2d3748', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ec4899', '#ef4444', '#64748b', '#10b981', '#f97316'];
 
   return (
@@ -50,7 +59,14 @@ export const BudgetOverview = ({ lang, expenses, budgets, income, onCategoryClic
         <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100">
           <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-8">{t.distribution}</h3>
           <div className="h-64 w-full flex items-center justify-center relative">
-            <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={chartData} cx="50%" cy="50%" innerRadius={65} outerRadius={85} paddingAngle={8} dataKey="value" stroke="none">{chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={chartData} cx="50%" cy="50%" innerRadius={65} outerRadius={85} paddingAngle={8} dataKey="value" stroke="none">
+                  {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
             <div className="absolute flex flex-col items-center pointer-events-none">
               <span className="text-xl font-black text-gray-800">{formatCurrency(totalSpent, lang)}</span>
             </div>
@@ -62,10 +78,12 @@ export const BudgetOverview = ({ lang, expenses, budgets, income, onCategoryClic
         {categoriesList.map((cat) => {
           const { limit, spent, remaining, percentage } = calculateStats(cat);
           const isOver = remaining < 0;
+          const translatedName = (trans.categories as any)[cat] || cat;
+
           return (
             <div key={cat} onClick={() => onCategoryClick?.(cat)} className={`bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 group cursor-pointer active:scale-95 hover:border-primary/20 transition-all ${isOver ? 'border-red-50 bg-red-50/10' : ''}`}>
               <div className="flex justify-between items-start mb-4">
-                <h4 className="font-bold text-gray-800 truncate pr-2">{cat}</h4>
+                <h4 className="font-bold text-gray-800 truncate pr-2">{translatedName}</h4>
                 {isOver ? <AlertCircle className="w-5 h-5 text-red-500 animate-pulse" /> : <ChevronRight className="w-4 h-4 text-gray-200" />}
               </div>
               <div className="mb-5">
