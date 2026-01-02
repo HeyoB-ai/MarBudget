@@ -1,16 +1,17 @@
+
 export enum Category {
-  HUUR_HYPOTHEEK = 'Huur/Hypotheek',
-  ENERGIE = 'Energie & Water',
-  BOODSCHAPPEN = 'Boodschappen',
-  VERVOER = 'Vervoer & Benzine',
-  TELEFOON_INTERNET = 'Telefoon & Internet',
-  VERZEKERINGEN = 'Verzekeringen',
-  UITJES = 'Uitjes & Horeca',
-  OVERIG = 'Overig'
+  HUUR_HYPOTHEEK = 'Alquiler/Hipoteca',
+  ENERGIE = 'Energía y Agua',
+  BOODSCHAPPEN = 'Comestibles',
+  VERVOER = 'Transporte y Gasolina',
+  TELEFOON_INTERNET = 'Teléfono e Internet',
+  VERZEKERINGEN = 'Seguros',
+  UITJES = 'Ocio y Restauración',
+  OVERIG = 'Otros'
 }
 
 export interface Expense {
-  id: string; // UUID
+  id: string; 
   tenant_id?: string;
   user_id?: string;
   amount: number;
@@ -19,7 +20,6 @@ export interface Expense {
   description: string;
   receiptImage?: string; 
   created_at?: string;
-  // Extra fields for rich export to sheets
   remaining_budget?: number;
   user_name?: string;
 }

@@ -1,3 +1,4 @@
+
 import { Category } from './types';
 
 export const CATEGORIES_LIST = [
@@ -11,8 +12,9 @@ export const CATEGORIES_LIST = [
   Category.OVERIG,
 ];
 
-export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('nl-NL', {
+export const formatCurrency = (amount: number, lang: 'nl' | 'es' = 'nl'): string => {
+  const locale = lang === 'nl' ? 'nl-NL' : 'es-ES';
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'EUR',
   }).format(amount);

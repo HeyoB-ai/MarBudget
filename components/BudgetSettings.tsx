@@ -6,6 +6,8 @@ import { Expense } from '../types';
 import { postToGoogleSheet } from '../services/sheetService';
 
 interface BudgetSettingsProps {
+  // Add lang property to match usage in App.tsx
+  lang: 'nl' | 'es';
   budgets: Record<string, number>;
   income: number;
   sheetUrl: string;
@@ -16,7 +18,8 @@ interface BudgetSettingsProps {
 
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
-export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ budgets, income, sheetUrl, onSave, onClose }) => {
+// Destructure lang from props
+export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ lang, budgets, income, sheetUrl, onSave, onClose }) => {
   const [localBudgets, setLocalBudgets] = useState<Record<string, string>>(() => {
     const formatted: Record<string, string> = {};
     Object.entries(budgets).forEach(([key, value]) => {

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,7 +15,8 @@ interface MemberWithProfile extends TenantMember {
   };
 }
 
-export const AdminDashboard = ({ onClose }: { onClose: () => void }) => {
+// Added lang property to the component signature
+export const AdminDashboard = ({ lang, onClose }: { lang: 'nl' | 'es', onClose: () => void }) => {
   const { tenant, role } = useAuth();
   const [members, setMembers] = useState<MemberWithProfile[]>([]);
   const [copied, setCopied] = useState(false);
