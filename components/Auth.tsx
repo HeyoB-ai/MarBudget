@@ -34,11 +34,11 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
       checkInboxSub: 'We hebben een bevestigingsmail gestuurd naar',
       noMail: 'Geen mail ontvangen?',
       resendBtn: 'Opnieuw sturen',
-      resendSuccess: 'Mail is opnieuw verzonden!',
+      resendSuccess: 'Verzoek verzonden! Check je mail over een minuut.',
       tryDifferent: 'Ander e-mailadres proberen',
       spamHint: 'Check ook je ongewenste e-mail of spam-folder.',
       nameLabel: 'Volledige Naam',
-      alreadyExistsHint: 'Krijg je geen mail? Mogelijk bestaat dit account al of heb je een typefout gemaakt.'
+      alreadyExistsHint: 'Krijg je geen mail? Mogelijk bestaat dit account al of heb je de limiet van 3 mails per uur bereikt.'
     },
     es: {
       slogan: 'visión, control, tranquilidad', 
@@ -58,11 +58,11 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
       checkInboxSub: 'Hemos enviado un correo de confirmación a',
       noMail: '¿No has recibido el correo?',
       resendBtn: 'Reenviar correo',
-      resendSuccess: '¡Correo reenviado con éxito!',
+      resendSuccess: '¡Solicitud enviada! Revisa tu correo en un minuto.',
       tryDifferent: 'Probar con otro correo',
       spamHint: 'Revisa también tu carpeta de correo no deseado o spam.',
       nameLabel: 'Nombre completo',
-      alreadyExistsHint: '¿No llega el correo? Es posible que la cuenta ya exista o haya un error en el email.'
+      alreadyExistsHint: '¿No llega el correo? Es posible que la cuenta ya exista o hayas alcanzado el límite de 3 correos por hora.'
     }
   }[lang];
 
@@ -72,6 +72,8 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
     setError(null);
     try {
       const cleanEmail = email.trim().toLowerCase();
+      console.log(`[Auth] Poging tot ${mode} voor: ${cleanEmail}`);
+
       if (mode === 'login') {
         const { error: loginError } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
         if (loginError) throw loginError;
@@ -87,17 +89,30 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
             emailRedirectTo: window.location.origin
           }
         });
+
         if (signUpError) throw signUpError;
-        
-        // Bij succes (of bij een bestaand account als Enumeration Protection aan staat)
-        // tonen we het succes scherm met de ingevoerde mail ter controle.
+
+        console.log("[Auth] SignUp result:", { 
+          user: data.user?.id, 
+          session: !!data.session,
+          identities: data.user?.identities?.length 
+        });
+
+        // Als er direct een sessie is, is e-mailbevestiging uitgeschakeld in Supabase
+        if (data.session) {
+          console.log("[Auth] Directe login gedetecteerd, geen mail nodig.");
+          return; 
+        }
+
+        // Als er een user is maar geen sessie, wacht Supabase op e-mailbevestiging
         if (data.user) {
           setSuccessInfo(cleanEmail);
         }
       }
     } catch (err: any) {
+      console.error("[Auth] Fout:", err);
       if (err.message.includes('rate limit')) {
-        setError(lang === 'nl' ? 'Te veel pogingen. Probeer het over een paar minuten opnieuw.' : 'Demasiados intentos. Inténtalo de nuevo en unos minutos.');
+        setError(lang === 'nl' ? 'Te veel verzoeken. Probeer het over een uur opnieuw of gebruik een ander adres.' : 'Demasiados intentos. Inténtalo de nuevo en una hora.');
       } else {
         setError(err.message);
       }
@@ -109,15 +124,20 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
   const handleResend = async () => {
     if (!successInfo) return;
     setResending(true);
+    setError(null);
     try {
+      console.log(`[Auth] Resend aangevraagd voor: ${successInfo}`);
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
         email: successInfo,
         options: { emailRedirectTo: window.location.origin }
       });
+      
       if (resendError) throw resendError;
+      
       alert(t.resendSuccess);
     } catch (err: any) {
+      console.error("[Auth] Resend fout:", err);
       setError(err.message);
     } finally {
       setResending(false);

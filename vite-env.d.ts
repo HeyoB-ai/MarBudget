@@ -24,6 +24,8 @@ interface ImportMeta {
 /** 
  * Support for process.env.API_KEY as required by the Gemini API implementation.
  * This ensures that the global process object is typed correctly throughout the application.
+ * Note: Explicitly declaring 'var process' here causes conflicts if Node types are present;
+ * augmenting the NodeJS namespace is the standard and safe way to add process.env types.
  */
 declare namespace NodeJS {
   interface ProcessEnv {
@@ -31,7 +33,3 @@ declare namespace NodeJS {
     [key: string]: string | undefined;
   }
 }
-
-declare var process: {
-  env: NodeJS.ProcessEnv;
-};
