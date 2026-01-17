@@ -16,7 +16,7 @@ import { NumeraLogo } from './components/Logo';
 export const translations = {
   nl: {
     slogan: 'inzicht, overzicht, rust',
-    myBudget: 'MIJN BUDGET',
+    myBudget: 'MARBUDGET',
     dashboard: 'Dashboard',
     expenses: 'Uitgaven',
     loading: 'Data ophalen...',
@@ -55,7 +55,7 @@ export const translations = {
       save: 'Instellingen Opslaan'
     },
     admin: {
-      title: 'Coach Dashboard',
+      title: 'MarBudget Coach',
       subtitle: 'Beheer cliënten',
       close: 'Sluiten',
       codeTitle: 'Coach Code',
@@ -76,7 +76,7 @@ export const translations = {
   },
   es: {
     slogan: 'visión, control, tranquilidad',
-    myBudget: 'MI PRESUPUESTO',
+    myBudget: 'MARBUDGET',
     dashboard: 'Resumen',
     expenses: 'Gastos',
     loading: 'Cargando datos...',
@@ -115,7 +115,7 @@ export const translations = {
       save: 'Guardar Configuración'
     },
     admin: {
-      title: 'Panel de Coach',
+      title: 'Panel MarBudget',
       subtitle: 'Gestiona tus clientes',
       close: 'Cerrar',
       codeTitle: 'Tu Código de Coach',
@@ -205,7 +205,7 @@ const Dashboard = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | '
           <div className="flex items-center space-x-4">
             <NumeraLogo size={52} />
             <div className="flex flex-col">
-              <h1 className="text-2xl font-black tracking-tighter text-secondary leading-none">Numera</h1>
+              <h1 className="text-2xl font-black tracking-tighter text-secondary leading-none">MarBudget</h1>
               <span className="text-[11px] font-extralight text-gray-400 tracking-tight leading-tight mt-1">{t.slogan}</span>
               <span className="text-[10px] text-primary font-black uppercase tracking-widest mt-1.5 leading-none">{tenant?.name || t.myBudget}</span>
             </div>
@@ -287,14 +287,14 @@ const Dashboard = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | '
 
 const AppContent = () => {
   const { session, loading, isCloudReady, tenant } = useAuth();
-  // Standaard op 'es' gezet voor MarBudget cliënten
-  const [lang, setLang] = useState<'nl' | 'es'>('es');
+  // Standaard op 'nl' gezet voor MarBudget cliënten in Nederland
+  const [lang, setLang] = useState<'nl' | 'es'>('nl');
   const t = translations[lang];
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 animate-fade-in">
       <NumeraLogo size={70} className="animate-pulse mb-6" />
-      <div className="flex flex-col items-center"><span className="text-3xl font-black text-secondary tracking-tighter">Numera</span><span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-300 mt-1">{t.loadingApp}</span></div>
+      <div className="flex flex-col items-center"><span className="text-3xl font-black text-secondary tracking-tighter">MarBudget</span><span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-300 mt-1">{t.loadingApp}</span></div>
     </div>
   );
   if (!session) return <Auth lang={lang} setLang={setLang} />;
