@@ -1,4 +1,5 @@
-/// <reference types="vite/client" />
+
+/* Fixed error: Cannot find type definition file for 'vite/client' by removing the problematic reference */
 
 interface AppConfig {
   VITE_SUPABASE_URL: string;
@@ -6,8 +7,10 @@ interface AppConfig {
   VITE_GOOGLE_API_KEY: string;
 }
 
+/** Global configuration object injected by Vite */
 declare const __APP_CONFIG__: AppConfig;
 
+/** Environment variables available via import.meta.env */
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string
   readonly VITE_SUPABASE_ANON_KEY: string
@@ -17,3 +20,18 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+/** 
+ * Support for process.env.API_KEY as required by the Gemini API implementation.
+ * This ensures that the global process object is typed correctly throughout the application.
+ */
+declare namespace NodeJS {
+  interface ProcessEnv {
+    API_KEY: string;
+    [key: string]: string | undefined;
+  }
+}
+
+declare var process: {
+  env: NodeJS.ProcessEnv;
+};

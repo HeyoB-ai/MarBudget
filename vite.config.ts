@@ -1,14 +1,17 @@
+
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import process from 'node:process';
 
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
+  // Fix: Ensure process.cwd() is correctly typed by importing node:process
   const env = loadEnv(mode, process.cwd(), '');
   
   // Helper to get and clean env vars
   const getEnv = (keys: string[]) => {
     for (const key of keys) {
-      const val = env[key] || process.env[key];
+      const val = env[key] || (process.env as any)[key];
       if (val) return val.trim();
     }
     return '';

@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { AlertTriangle, ArrowRight, Mail, Loader2, ChevronLeft, UserPlus, Briefcase, Languages } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Mail, Loader2, ChevronLeft, UserPlus, Briefcase, Languages, RefreshCw, Edit3 } from 'lucide-react';
 import { NumeraLogo } from './Logo';
 
 export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | 'es') => void }) => {
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -30,7 +31,14 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
       activate: 'Account Activeren', 
       codeLabel: 'Unieke Coach Code', 
       checkInbox: 'Check je inbox',
-      nameLabel: 'Volledige Naam'
+      checkInboxSub: 'We hebben een bevestigingsmail gestuurd naar',
+      noMail: 'Geen mail ontvangen?',
+      resendBtn: 'Opnieuw sturen',
+      resendSuccess: 'Mail is opnieuw verzonden!',
+      tryDifferent: 'Ander e-mailadres proberen',
+      spamHint: 'Check ook je ongewenste e-mail of spam-folder.',
+      nameLabel: 'Volledige Naam',
+      alreadyExistsHint: 'Krijg je geen mail? Mogelijk bestaat dit account al of heb je een typefout gemaakt.'
     },
     es: {
       slogan: 'visión, control, tranquilidad', 
@@ -47,7 +55,14 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
       activate: 'Activar Cuenta', 
       codeLabel: 'Código de Coach', 
       checkInbox: 'Revisa tu correo',
-      nameLabel: 'Nombre completo'
+      checkInboxSub: 'Hemos enviado un correo de confirmación a',
+      noMail: '¿No has recibido el correo?',
+      resendBtn: 'Reenviar correo',
+      resendSuccess: '¡Correo reenviado con éxito!',
+      tryDifferent: 'Probar con otro correo',
+      spamHint: 'Revisa también tu carpeta de correo no deseado o spam.',
+      nameLabel: 'Nombre completo',
+      alreadyExistsHint: '¿No llega el correo? Es posible que la cuenta ya exista o haya un error en el email.'
     }
   }[lang];
 
@@ -56,21 +71,56 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
     setLoading(true);
     setError(null);
     try {
+      const cleanEmail = email.trim().toLowerCase();
       if (mode === 'login') {
-        const { error: loginError } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+        const { error: loginError } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
         if (loginError) throw loginError;
       } else {
         const { data, error: signUpError } = await supabase.auth.signUp({
-          email: email.trim().toLowerCase(), password,
-          options: { data: { full_name: fullName, pending_role: mode === 'register_coach' ? 'master_admin' : 'sub_user', pending_family_code: familyCode } }
+          email: cleanEmail, password,
+          options: { 
+            data: { 
+              full_name: fullName, 
+              pending_role: mode === 'register_coach' ? 'master_admin' : 'sub_user', 
+              pending_family_code: familyCode 
+            },
+            emailRedirectTo: window.location.origin
+          }
         });
         if (signUpError) throw signUpError;
-        if (data.user && !data.session) setSuccessInfo(t.checkInbox);
+        
+        // Bij succes (of bij een bestaand account als Enumeration Protection aan staat)
+        // tonen we het succes scherm met de ingevoerde mail ter controle.
+        if (data.user) {
+          setSuccessInfo(cleanEmail);
+        }
       }
+    } catch (err: any) {
+      if (err.message.includes('rate limit')) {
+        setError(lang === 'nl' ? 'Te veel pogingen. Probeer het over een paar minuten opnieuw.' : 'Demasiados intentos. Inténtalo de nuevo en unos minutos.');
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!successInfo) return;
+    setResending(true);
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: successInfo,
+        options: { emailRedirectTo: window.location.origin }
+      });
+      if (resendError) throw resendError;
+      alert(t.resendSuccess);
     } catch (err: any) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      setResending(false);
     }
   };
 
@@ -91,29 +141,65 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
         </div>
 
         {successInfo ? (
-          <div className="text-center w-full animate-fade-in">
-             <Mail className="w-14 h-14 text-primary mx-auto mb-5" />
-             <h3 className="font-black text-secondary text-xl mb-2">{t.checkInbox}</h3>
-             <button onClick={() => setMode('login')} className="text-secondary font-black text-[10px] uppercase tracking-widest bg-gray-50 px-10 py-5 rounded-2xl mt-4">{t.backBtn}</button>
+          <div className="text-center w-full animate-fade-in space-y-6">
+             <div className="bg-primary/10 w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                <Mail className="w-10 h-10 text-primary" />
+             </div>
+             <div>
+               <h3 className="font-black text-secondary text-2xl mb-2">{t.checkInbox}</h3>
+               <p className="text-sm text-gray-500 font-medium px-4">
+                 {t.checkInboxSub} <br/>
+                 <span className="font-black text-secondary block mt-1">{successInfo}</span>
+               </p>
+             </div>
+             
+             <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100 text-[11px] text-gray-400 font-bold leading-relaxed italic">
+               {t.spamHint} <br/> {t.alreadyExistsHint}
+             </div>
+
+             <div className="space-y-3 pt-4">
+               <button 
+                onClick={handleResend} 
+                disabled={resending}
+                className="w-full flex items-center justify-center gap-2 py-4 px-6 bg-white border border-gray-200 text-secondary rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50"
+               >
+                 {resending ? <Loader2 className="animate-spin w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
+                 {t.resendBtn}
+               </button>
+               
+               <button 
+                onClick={() => { setSuccessInfo(null); setError(null); }} 
+                className="w-full flex items-center justify-center gap-2 py-4 px-6 text-gray-400 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:text-secondary transition-all"
+               >
+                 <Edit3 className="w-4 h-4" />
+                 {t.tryDifferent}
+               </button>
+
+               <div className="pt-4">
+                 <button onClick={() => { setMode('login'); setSuccessInfo(null); }} className="text-primary font-black text-[10px] uppercase tracking-[0.3em]">{t.backBtn} {t.login}</button>
+               </div>
+             </div>
+             
+             {error && <div className="mt-4 text-[10px] text-red-500 font-bold uppercase">{error}</div>}
           </div>
         ) : (
           <div className="w-full">
             <div className="flex bg-gray-100 p-1.5 rounded-[1.8rem] mb-10">
               <button 
-                onClick={() => setMode('login')} 
+                onClick={() => { setMode('login'); setError(null); }} 
                 className={`flex-1 py-3 text-[10px] font-black uppercase rounded-[1.5rem] transition-all ${mode === 'login' ? 'bg-white text-secondary shadow-sm' : 'text-gray-400'}`}
               >
                 {t.login}
               </button>
               <button 
-                onClick={() => setMode('register_select')} 
+                onClick={() => { setMode('register_select'); setError(null); }} 
                 className={`flex-1 py-3 text-[10px] font-black uppercase rounded-[1.5rem] transition-all ${mode.startsWith('register') ? 'bg-white text-secondary shadow-sm' : 'text-gray-400'}`}
               >
                 {t.register}
               </button>
             </div>
             
-            {error && <div className="bg-red-50 text-red-600 p-5 rounded-[1.5rem] mb-6 text-xs font-bold border border-red-100">{error}</div>}
+            {error && <div className="bg-red-50 text-red-600 p-5 rounded-[1.5rem] mb-6 text-xs font-bold border border-red-100 animate-shake">{error}</div>}
             
             {mode === 'login' ? (
               <form onSubmit={handleAuth} className="space-y-4">
@@ -123,7 +209,7 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
                   placeholder={t.emailLabel} 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
-                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner text-center" 
+                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner text-center focus:ring-2 focus:ring-primary/20 transition-all" 
                 />
                 <input 
                   type="password" 
@@ -131,27 +217,27 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
                   placeholder={t.passLabel} 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
-                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner text-center" 
+                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner text-center focus:ring-2 focus:ring-primary/20 transition-all" 
                 />
                 <button 
                   type="submit" 
                   disabled={loading} 
-                  className="w-full bg-secondary text-white py-5 rounded-[2rem] font-black uppercase text-[11px] tracking-[0.2em] shadow-xl hover:bg-black transition-all flex justify-center items-center"
+                  className="w-full bg-secondary text-white py-5 rounded-[2rem] font-black uppercase text-[11px] tracking-[0.2em] shadow-xl hover:bg-black transition-all flex justify-center items-center active:scale-95"
                 >
                   {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <>{t.startBtn} <ArrowRight className="ml-3 w-4 h-4 text-primary" /></>}
                 </button>
               </form>
             ) : mode === 'register_select' ? (
               <div className="space-y-4">
-                <button onClick={() => setMode('register_coach')} className="w-full p-6 bg-white border-2 border-gray-50 rounded-[2.5rem] hover:border-primary flex items-center shadow-sm text-left">
-                  <div className="bg-secondary p-4 rounded-2xl text-primary mr-5"><Briefcase size={28} /></div>
+                <button onClick={() => setMode('register_coach')} className="w-full p-6 bg-white border-2 border-gray-50 rounded-[2.5rem] hover:border-primary flex items-center shadow-sm text-left group transition-all active:scale-95">
+                  <div className="bg-secondary p-4 rounded-2xl text-primary mr-5 group-hover:scale-110 transition-transform"><Briefcase size={28} /></div>
                   <div>
                     <div className="font-black text-gray-800 text-sm uppercase">{t.coach}</div>
                     <div className="text-[9px] text-gray-400 font-bold uppercase mt-1">{t.coachSub}</div>
                   </div>
                 </button>
-                <button onClick={() => setMode('register_client')} className="w-full p-6 bg-white border-2 border-gray-50 rounded-[2.5rem] hover:border-primary flex items-center shadow-sm text-left">
-                  <div className="bg-secondary p-4 rounded-2xl text-primary mr-5"><UserPlus size={28} /></div>
+                <button onClick={() => setMode('register_client')} className="w-full p-6 bg-white border-2 border-gray-50 rounded-[2.5rem] hover:border-primary flex items-center shadow-sm text-left group transition-all active:scale-95">
+                  <div className="bg-secondary p-4 rounded-2xl text-primary mr-5 group-hover:scale-110 transition-transform"><UserPlus size={28} /></div>
                   <div>
                     <div className="font-black text-gray-800 text-sm uppercase">{t.client}</div>
                     <div className="text-[9px] text-gray-400 font-bold uppercase mt-1">{t.clientSub}</div>
@@ -170,7 +256,7 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
                     placeholder={t.codeLabel} 
                     value={familyCode} 
                     onChange={(e) => setFamilyCode(e.target.value)} 
-                    className="w-full p-4 bg-primary/5 border-2 border-primary/10 rounded-2xl text-center font-bold text-sm mb-4" 
+                    className="w-full p-4 bg-primary/5 border-2 border-primary/10 rounded-2xl text-center font-bold text-sm mb-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all" 
                   />
                 )}
                 <input 
@@ -179,7 +265,7 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
                   placeholder={t.nameLabel} 
                   value={fullName} 
                   onChange={(e) => setFullName(e.target.value)} 
-                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner" 
+                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner focus:ring-2 focus:ring-primary/20 transition-all" 
                 />
                 <input 
                   type="email" 
@@ -187,7 +273,7 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
                   placeholder={t.emailLabel} 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
-                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner" 
+                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner focus:ring-2 focus:ring-primary/20 transition-all" 
                 />
                 <input 
                   type="password" 
@@ -195,12 +281,12 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
                   placeholder={t.passLabel} 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
-                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner" 
+                  className="w-full p-4 bg-gray-50 border-0 rounded-2xl text-sm font-bold outline-none shadow-inner focus:ring-2 focus:ring-primary/20 transition-all" 
                 />
                 <button 
                   type="submit" 
                   disabled={loading} 
-                  className="w-full bg-secondary text-white py-5 rounded-[2rem] font-black uppercase text-[11px] tracking-[0.2em] shadow-xl mt-8 transition-all hover:bg-black"
+                  className="w-full bg-secondary text-white py-5 rounded-[2rem] font-black uppercase text-[11px] tracking-[0.2em] shadow-xl mt-8 transition-all hover:bg-black active:scale-95"
                 >
                   {loading ? <Loader2 className="animate-spin w-5 h-5 mx-auto" /> : t.activate}
                 </button>

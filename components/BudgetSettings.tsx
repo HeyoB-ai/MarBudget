@@ -82,7 +82,8 @@ export const BudgetSettings: React.FC<BudgetSettingsProps> = ({ lang, budgets, i
 
     const finalBudgets: Record<string, number> = {};
     Object.entries(finalBudgetsMap).forEach(([key, value]) => {
-      finalBudgets[key.trim()] = parseValue(value);
+      // Fix: Cast value to string to resolve "Argument of type 'unknown' is not assignable to parameter of type 'string'" error
+      finalBudgets[key.trim()] = parseValue(value as string);
     });
 
     onSave(finalBudgets, parseValue(localIncomeStr), localSheetUrl);
