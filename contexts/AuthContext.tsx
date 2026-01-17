@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
@@ -63,20 +64,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserData = async (currentUser: User) => {
     try {
+      console.log(`[AuthContext] Gegevens ophalen voor: ${currentUser.email}`);
+      
       // 1. Profiel ophalen/maken
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', currentUser.id)
         .maybeSingle();
 
+      if (profileError) {
+        console.error("[AuthContext] Profiel fout:", profileError);
+      }
+
       let currentProfile = profileData;
-      if (!currentProfile) {
-        const { data: newP } = await supabase.from('profiles').upsert({
+      if (!currentProfile && currentUser.id) {
+        console.log("[AuthContext] Geen profiel gevonden, nieuw profiel aanmaken...");
+        const { data: newP, error: upsertError } = await supabase.from('profiles').upsert({
           id: currentUser.id,
           email: currentUser.email,
           full_name: currentUser.user_metadata?.full_name || 'Gebruiker'
         }).select().maybeSingle();
+        
+        if (upsertError) {
+          console.error("[AuthContext] Upsert fout:", upsertError);
+        }
         currentProfile = newP;
       }
       setProfile(currentProfile);
@@ -88,13 +100,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('user_id', currentUser.id)
         .maybeSingle();
 
-      // 3. SaaS Onboarding: Als er geen tenant is, maak deze aan (voor Coaches) of koppel (voor Cliënten)
-      if (!memberData) {
+      // 3. SaaS Onboarding
+      if (!memberData && currentUser.id) {
         const pendingRole = currentUser.user_metadata?.pending_role || 'master_admin';
         const pendingCode = currentUser.user_metadata?.pending_family_code;
 
         if (pendingRole === 'master_admin' || !pendingCode) {
-          // Coach flow: Nieuwe omgeving maken
+          console.log("[AuthContext] Nieuwe tenant aanmaken voor coach...");
           const { data: newTenant } = await supabase.from('tenants').insert({
             name: `Praktijk ${currentProfile?.full_name?.split(' ')[0] || 'Budget'}`,
             subscription_tier: 'S',
@@ -110,7 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             memberData = newM;
           }
         } else if (pendingCode) {
-          // Cliënt flow: Koppelen aan coach via code
+          console.log(`[AuthContext] Koppelen aan tenant code: ${pendingCode}`);
           const { data: targetTenant } = await supabase.from('tenants').select('id').eq('id', pendingCode).maybeSingle();
           if (targetTenant) {
             const { data: newM } = await supabase.from('tenant_members').insert({
@@ -132,7 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (error) {
-      console.warn("Verbinding met cloud beperkt. Schakelen naar veilige lokale modus.");
+      console.warn("[AuthContext] Verbinding beperkt:", error);
       setIsCloudReady(false);
     } finally {
       setLoading(false);

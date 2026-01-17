@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { AlertTriangle, ArrowRight, Mail, Loader2, ChevronLeft, UserPlus, Briefcase, Languages, RefreshCw, Edit3, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Mail, Loader2, ChevronLeft, UserPlus, Briefcase, Languages, RefreshCw, Edit3, Info, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { NumeraLogo } from './Logo';
 
 export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | 'es') => void }) => {
@@ -16,7 +16,6 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(false);
 
-  // De exacte URL waar de gebruiker naar terug moet keren na e-mailbevestiging
   const redirectUrl = window.location.origin.replace(/\/$/, ""); 
 
   const t = {
@@ -41,9 +40,10 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
       resendSuccess: 'Verzoek verzonden! Check je mail over een minuut.',
       tryDifferent: 'Ander e-mailadres proberen',
       spamHint: 'Check ook je ongewenste e-mail of spam-folder.',
-      siteNotFoundHint: 'Krijg je "Site not found" na het klikken? De link werkt wel, maar de terugkeer-URL in Supabase staat verkeerd. Ga na het klikken handmatig terug naar deze app en log in.',
+      rateLimitHint: 'Supabase stuurt maximaal 3 mails per uur per adres. Wacht even als het niet lukt.',
+      siteNotFoundHint: 'Krijg je "Site not found" na het klikken? De link werkt wel, maar de terugkeer-URL in Supabase staat verkeerd.',
       nameLabel: 'Volledige Naam',
-      alreadyExistsHint: 'Krijg je geen mail? Mogelijk bestaat dit account al of heb je de limiet van 3 mails per uur bereikt.'
+      alreadyExistsHint: 'Als je geen mail krijgt, bestaat dit account mogelijk nog in de "identities" tabel van Supabase.'
     },
     es: {
       slogan: 'visión, control, tranquilidad', 
@@ -66,9 +66,10 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
       resendSuccess: '¡Solicitud enviada! Revisa tu correo en un minuto.',
       tryDifferent: 'Probar con otro correo',
       spamHint: 'Revisa también tu carpeta de correo no deseado o spam.',
-      siteNotFoundHint: '¿Ves "Site not found" al hacer clic? El enlace funciona, pero la URL de retorno en Supabase es incorrecta. Vuelve manualmente a esta app e inicia sesión.',
+      rateLimitHint: 'Supabase envía un máximo de 3 correos por hora. Espera un momento si no llega.',
+      siteNotFoundHint: '¿Ves "Site not found"? El enlace funciona, maar de URL de retorno en Supabase es incorrecta.',
       nameLabel: 'Nombre completo',
-      alreadyExistsHint: '¿No llega el correo? Es posible que la cuenta ya exista o hayas alcanzado el límite de 3 correos por hora.'
+      alreadyExistsHint: 'Si no llega el correo, es posible que la cuenta aún exista en la tabla "identities" de Supabase.'
     }
   }[lang];
 
@@ -78,12 +79,13 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
     setError(null);
     try {
       const cleanEmail = email.trim().toLowerCase();
-      console.log(`[Auth] Registratie via redirect: ${redirectUrl}`);
-
+      
       if (mode === 'login') {
         const { error: loginError } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
         if (loginError) throw loginError;
       } else {
+        console.log(`[Auth] Registratiepoging voor: ${cleanEmail} met redirect: ${redirectUrl}`);
+        
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: cleanEmail, password,
           options: { 
@@ -98,8 +100,23 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
 
         if (signUpError) throw signUpError;
 
-        if (data.session) return; // Auto-login
-        if (data.user) setSuccessInfo(cleanEmail);
+        // Logging voor debugging
+        console.log("[Auth] Supabase response:", data);
+
+        if (data.session) {
+          console.log("[Auth] Directe login gedetecteerd (geen e-mailbevestiging nodig)");
+          return;
+        }
+
+        // Check of de gebruiker al bestond (Supabase geeft dan geen error maar lege identities)
+        const isExistingUser = data.user && data.user.identities && data.user.identities.length === 0;
+        
+        if (isExistingUser) {
+          console.warn("[Auth] Gebruiker bestaat al volgens identities. Er wordt geen mail gestuurd.");
+          setError(lang === 'nl' ? "Dit e-mailadres is al in gebruik of onlangs gewist. Wacht 15 min." : "Este correo ya está en uso o fue borrado recientemente. Espera 15 min.");
+        } else if (data.user) {
+          setSuccessInfo(cleanEmail);
+        }
       }
     } catch (err: any) {
       console.error("[Auth] Fout:", err);
@@ -157,12 +174,19 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
                </p>
              </div>
              
-             <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100 text-[11px] text-amber-700 font-bold leading-relaxed italic">
-               <div className="flex items-start gap-2 mb-2">
-                 <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-                 <span>{t.siteNotFoundHint}</span>
+             <div className="space-y-3">
+               <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100 text-[10px] text-amber-700 font-bold leading-relaxed italic text-left">
+                 <div className="flex items-start gap-2 mb-2">
+                   <Clock size={14} className="mt-0.5 shrink-0" />
+                   <span>{t.rateLimitHint}</span>
+                 </div>
+                 <div className="flex items-start gap-2">
+                   <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                   <span>{t.siteNotFoundHint}</span>
+                 </div>
                </div>
-               <div className="border-t border-amber-200/50 mt-2 pt-2 opacity-70">
+               
+               <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-[10px] text-gray-400 font-medium text-left">
                  {t.spamHint}
                </div>
              </div>
@@ -185,24 +209,20 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
                  {t.tryDifferent}
                </button>
 
-               <div className="pt-4 flex flex-col items-center gap-4">
-                 <button onClick={() => { setMode('login'); setSuccessInfo(null); }} className="text-primary font-black text-[10px] uppercase tracking-[0.3em]">{t.backBtn} {t.login}</button>
-                 
-                 <button 
+               <button 
                   onClick={() => setShowDebug(!showDebug)} 
-                  className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest text-gray-300 hover:text-gray-500"
-                 >
-                   {showDebug ? <ChevronUp size={10} /> : <ChevronDown size={10} />} Debug Config
-                 </button>
-                 
-                 {showDebug && (
-                   <div className="w-full p-4 bg-gray-900 rounded-xl text-[8px] font-mono text-green-400 text-left break-all">
-                     REDIRECT_URL: {redirectUrl}<br/>
-                     STATUS: Supabase Email Sent<br/>
-                     ENV: {window.location.hostname}
-                   </div>
-                 )}
-               </div>
+                  className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest text-gray-300 hover:text-gray-500 mx-auto mt-4"
+               >
+                 {showDebug ? <ChevronUp size={10} /> : <ChevronDown size={10} />} Debug Config
+               </button>
+               
+               {showDebug && (
+                 <div className="w-full p-4 bg-gray-900 rounded-xl text-[8px] font-mono text-green-400 text-left break-all animate-fade-in">
+                   REDIRECT_URL: {redirectUrl}<br/>
+                   HOST: {window.location.hostname}<br/>
+                   TIME: {new Date().toLocaleTimeString()}
+                 </div>
+               )}
              </div>
              
              {error && <div className="mt-4 text-[10px] text-red-500 font-bold uppercase">{error}</div>}
