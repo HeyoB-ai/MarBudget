@@ -287,7 +287,7 @@ const Dashboard = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' | '
 
 const AppContent = () => {
   const { session, loading, isCloudReady, tenant } = useAuth();
-  // Standaard op 'nl' gezet
+  // Geforceerd op 'nl'
   const [lang, setLang] = useState<'nl' | 'es'>('nl');
   const t = translations[lang];
 
