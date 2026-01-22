@@ -1,13 +1,13 @@
 
 export enum Category {
-  HUUR_HYPOTHEEK = 'Alquiler/Hipoteca',
-  ENERGIE = 'Energía y Agua',
-  BOODSCHAPPEN = 'Comestibles',
-  VERVOER = 'Transporte y Gasolina',
-  TELEFOON_INTERNET = 'Teléfono e Internet',
-  VERZEKERINGEN = 'Seguros',
-  UITJES = 'Ocio y Restauración',
-  OVERIG = 'Otros'
+  HUUR_HYPOTHEEK = 'Huur/Hypotheek',
+  ENERGIE = 'Energie & Water',
+  BOODSCHAPPEN = 'Boodschappen',
+  VERVOER = 'Vervoer & Benzine',
+  TELEFOON_INTERNET = 'Telefoon & Internet',
+  VERZEKERINGEN = 'Verzekeringen',
+  UITJES = 'Uitjes & Horeca',
+  OVERIG = 'Overig'
 }
 
 export interface Expense {

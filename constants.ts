@@ -24,7 +24,7 @@ export const generateId = (): string => {
   return Math.random().toString(36).substring(2, 9);
 };
 
-export const INITIAL_BUDGETS: Record<Category, number> = {
+export const INITIAL_BUDGETS: Record<string, number> = {
   [Category.HUUR_HYPOTHEEK]: 1200,
   [Category.ENERGIE]: 150,
   [Category.BOODSCHAPPEN]: 400,

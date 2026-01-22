@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Expense } from '../types';
@@ -11,7 +12,7 @@ export const LegacySync: React.FC<{ onSyncComplete: () => void }> = ({ onSyncCom
   const [synced, setSynced] = useState(false);
 
   useEffect(() => {
-    const data = localStorage.getItem('marbudget_expenses');
+    const data = localStorage.getItem('numera_expenses');
     if (data) {
       setLocalExpenses(JSON.parse(data));
     }
@@ -22,7 +23,6 @@ export const LegacySync: React.FC<{ onSyncComplete: () => void }> = ({ onSyncCom
 
     setSyncing(true);
     try {
-      // Prepare data for Supabase
       const payload = localExpenses.map(exp => ({
         tenant_id: tenant.id,
         user_id: user.id,
@@ -33,21 +33,14 @@ export const LegacySync: React.FC<{ onSyncComplete: () => void }> = ({ onSyncCom
         receipt_image: exp.receiptImage 
       }));
 
-      // Insert into DB
       const { error } = await supabase.from('expenses').insert(payload);
-
       if (error) throw error;
 
-      // Clean up local storage logic
-      // We rename it instead of delete, just to be safe for rollback
-      localStorage.setItem('marbudget_expenses_backup_v1', JSON.stringify(localExpenses));
-      localStorage.removeItem('marbudget_expenses');
-      
-      // Also migrate budget settings if needed
-      // For now we assume budget settings are re-configured in the new DB logic, or we migrate them similarly
+      localStorage.setItem('numera_expenses_backup_v1', JSON.stringify(localExpenses));
+      localStorage.removeItem('numera_expenses');
       
       setSynced(true);
-      setTimeout(onSyncComplete, 2000); // Wait a bit then close
+      setTimeout(onSyncComplete, 2000);
 
     } catch (err: any) {
       alert(`Fout bij syncen: ${err.message}`);
@@ -57,7 +50,6 @@ export const LegacySync: React.FC<{ onSyncComplete: () => void }> = ({ onSyncCom
   };
 
   const handleSkip = () => {
-    // Just hide the prompt
     onSyncComplete();
   };
 
