@@ -19,7 +19,6 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
   const [copiedUrl, setCopiedUrl] = useState(false);
 
   // De URL waar de gebruiker naar terugkeert na het klikken op de bevestigingsmail.
-  // We gebruiken window.location.origin zodat dit altijd klopt, of je nu op localhost, Netlify of numeraplatform.nl zit.
   const redirectUrl = window.location.origin;
 
   const t = {
@@ -158,7 +157,7 @@ export const Auth = ({ lang, setLang }: { lang: 'nl' | 'es', setLang: (l: 'nl' |
       <div className="bg-white p-10 md:p-14 rounded-[3.5rem] shadow-2xl w-full max-w-md border border-gray-100 flex flex-col items-center">
         <div className="flex flex-col items-center mb-12 text-center">
           <NumeraLogo size={80} className="mb-6 drop-shadow-xl" />
-          <h1 className="text-4xl font-black text-secondary tracking-tighter leading-none">MarBudget</h1>
+          <h1 className="text-4xl font-black text-secondary tracking-tighter leading-none">Numera</h1>
           <p className="text-[13px] text-gray-400 font-extralight tracking-tight mt-1 leading-tight italic">{t.slogan}</p>
         </div>
 

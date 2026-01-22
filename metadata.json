@@ -1,6 +1,6 @@
 {
-  "name": "MarBudget",
-  "description": "Professionele budgetcoach applicatie voor inzicht, overzicht en financiële rust.",
+  "name": "Numera",
+  "description": "Inzicht, overzicht en financiële rust met Numera.",
   "requestFramePermissions": [
     "camera"
   ]
